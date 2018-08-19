@@ -110,26 +110,42 @@ object Player {
   val DEFAULT_SCORE: Integer = 5000
 }
 
+sealed trait Action
+case object Fold extends Action
+case class Call(value: Integer) extends Action
+case class Raise(value: Integer, raise: Integer) extends Action
+case object AllIn extends Action
+
 case class HandCards(card1: Card, card2: Card, card3: Card, card4: Option[Card] = None, card5: Option[Card] = None) {
   def setCard4(card: Card): HandCards = copy(card4 = Some(card))
   def setCard5(card: Card): HandCards = copy(card5 = Some(card))
 }
 
-case class PlayerHand(player: Player, role: Role, card1: Card, card2: Card, pot: Integer = 0)
+case class PlayerHand(player: Player, role: Role, card1: Card, card2: Card, pot: Integer = 0) {
+  def update(action: Action): PlayerHand = 
+    action match {
+      case Fold => copy(role = Folded)
+      case Call(value) => copy(pot = pot + value)
+      case Raise(value, raise) => copy(pot = pot + value + raise)
+      case AllIn => copy(pot = player.score)
+    }
+}
 
-sealed trait Action
-case object Fold extends Action
-case object Call extends Action
-case class Raise(value: Integer) extends Action
-case object AllIn extends Action
-
-case class Pot(history: List[(Player, Action)] = List(), current: Integer = 0)
-
-case class GameHand(phase: HandPhase, players: List[PlayerHand], cards: Option[HandCards], pot: Pot = Pot()) {
+case class GameHand(phase: HandPhase, players: List[PlayerHand], cards: Option[HandCards]) {
   def toPhase(phase: HandPhase): GameHand = copy(phase = phase)
   def setFlop(cards: HandCards): GameHand = copy(cards = Some(cards))
   def setTurn(card: Card): GameHand = copy(cards = cards.map(_.setCard4(card)))
   def setRiver(card: Card): GameHand = copy(cards = cards.map(_.setCard5(card)))
+  
+  def update(player: Player, action: Action): GameHand = {
+    val newPlayers = players.map {
+      playerHand => if (playerHand.player == player) playerHand.update(action) else playerHand
+    }
+
+    GameHand(phase, newPlayers, cards)
+  }
+  
+  def pot: Integer = players.map(_.pot).reduce(_ + _)
 }
 
 object GameHand {
@@ -207,6 +223,10 @@ object Game {
   
   private def map2[S, A, B, C](sa: State[S, A], sb: State[S, B])(map: (A, B) => C): State[S, C] = 
     sa.flatMap(a => sb.map(b => map(a, b)))
+}
+
+object BetTurn {
+  
 }
 
 object Main extends App {
