@@ -55,7 +55,6 @@ case object Flop extends HandPhase
 case object Turn extends HandPhase
 case object River extends HandPhase
 case object Showdown extends HandPhase
-case object End extends HandPhase
 
 sealed trait Role
 case object Regular extends Role
@@ -65,29 +64,43 @@ case object BigBlind extends Role
 
 case class Card(suit: Suit, figure: Figure)
 
-case class Deck(cards: List[Card]) {
-  def take = (Deck(cards.tail), cards.head)
-}
-
-object Deck {
+object Card {
   val all = for {
     suit <- Suit.all
     figure <- Figure.all
   } yield Card(suit, figure)
+}
 
-  def ordered = Deck(all)
-  def shuffle = Deck(Random.shuffle(all))
+case class Deck(cards: List[Card]) {
+  def take = cards.head
+  def burn = Deck(cards.tail)
+}
+
+object Deck {
+  def ordered = Deck(Card.all)
+  def shuffle = Deck(Random.shuffle(Card.all))
 
   def take: State[Deck, Card] = State {
-    deck => deck.take
+    deck => (deck.burn, deck.take)
   }
   
-  def flopCards: State[Deck, HandCards] =
+  def burn: State[Deck, Unit] = State {
+    deck => (deck.burn, ())
+  }
+
+  def burnAndTake3: State[Deck, HandCards] =
     for {
-      card1 <- Deck.take
-      card2 <- Deck.take
-      card3 <- Deck.take
+      _ <- burn
+      card1 <- take
+      card2 <- take
+      card3 <- take
     } yield HandCards(card1, card2, card3)
+  
+  def burnAndTake: State[Deck, Card] =
+    for {
+      _ <- burn
+      card <- take 
+    } yield card
 }
 
 case class Player(name: String, score: Integer = Player.DEFAULT_SCORE)
@@ -102,67 +115,116 @@ case class HandCards(card1: Card, card2: Card, card3: Card, card4: Option[Card] 
 }
 
 case class PlayerHand(player: Player, role: Role, card1: Card, card2: Card)
-case class GameHand(phase: HandPhase, players: List[PlayerHand], cards: Option[HandCards], pot: Integer)
+
+case class GameHand(phase: HandPhase, players: List[PlayerHand], cards: Option[HandCards], pot: Integer = 0) {
+  def toPhase(phase: HandPhase): GameHand = copy(phase = phase)
+  def setFlop(cards: HandCards): GameHand = copy(cards = Some(cards))
+  def setTurn(card: Card): GameHand = copy(cards = cards.map(_.setCard4(card)))
+  def setRiver(card: Card): GameHand = copy(cards = cards.map(_.setCard5(card)))
+}
 
 object GameHand {
   def next(current: GameHand): State[Deck, GameHand] = 
     current.phase match {
-       case PreFlop => for {
-           cards <- Deck.flopCards
-         } yield current.copy(phase = Flop, cards = Some(cards))
-       case Flop => for {
-           card <- Deck.take 
-         } yield current.copy(phase = Turn, cards = current.cards.map(_.copy(card4 = Some(card))))
-       case Turn => for {
-           card <- Deck.take 
-         } yield current.copy(phase = River, cards = current.cards.map(_.copy(card5 = Some(card))))
-       case River => pure(current.copy(phase = Showdown))
-       case Showdown => pure(current.copy(phase = End))
-       case End => pure(current)
+      case PreFlop => toFlop(current)
+      case Flop => toTurn(current)
+      case Turn => toRiver(current)
+      case River => toShowdown(current)
+      case Showdown => pure(current)
     }
+  
+  def toFlop(current: GameHand): State[Deck, GameHand] = 
+    for {
+      cards <- Deck.burnAndTake3
+    } yield current.toPhase(Flop).setFlop(cards)
+  
+  def toTurn(current: GameHand): State[Deck, GameHand] =
+    for {
+      card <- Deck.burnAndTake 
+    } yield current.toPhase(Turn).setTurn(card)
+  
+  def toRiver(current: GameHand): State[Deck, GameHand] =
+    for {
+      card <- Deck.burnAndTake 
+    } yield current.toPhase(River).setRiver(card)
+    
+  def toShowdown(current: GameHand): State[Deck, GameHand] =
+    pure(current.toPhase(Showdown))
 }
 
-case class Game(players: List[Player], round: Integer = 0) {
-  def next = Game(players.filter(_.score > 0), round + 1)
+case class Game(players: List[Player], round: Integer = 1) {
+  def dealer: Player = players.head
+  def smallBlind: Player = players.tail.head
+  def bigBlind: Player = players.tail.tail.head
+
+  def next = {
+    val newPlayers = players.filter(_.score > 0)
+    Game(newPlayers.tail :+ newPlayers.head, round + 1)
+  }
+  
+  def playerRole(player: Player) = 
+    player match {
+      case Player(name, _) if name == dealer.name => Dealer
+      case Player(name, _) if name == smallBlind.name => SmallBlind
+      case Player(name, _) if name == bigBlind.name => BigBlind
+      case _ => Regular
+    }
 }
 
 object Game {
   def start(players: List[Player]): State[Deck, Game] = pure(Game(players))
+  
+  def next(game: Game): State[Deck, Game] = pure(game.next)
 
   def nextGameHand(game: Game): State[Deck, GameHand] = 
     for {
-      players <- playerList(game.players)
-    } yield GameHand(PreFlop, players, None, 0)
+      players <- playerList(game)
+    } yield GameHand(PreFlop, players, None)
 
-  private def playerList(players: List[Player]) : State[Deck, List[PlayerHand]] = 
-    players.map(newPlayerHand(_, Regular))
+  private def playerList(game: Game): State[Deck, List[PlayerHand]] = 
+    game.players.map(newPlayerHand(_, game))
       .foldLeft(pure[Deck, List[PlayerHand]](List()))((sa, sb) => map2(sa, sb)((acc, b) => acc :+ b))
 
-  private def newPlayerHand(player: Player, role: Role): State[Deck, PlayerHand] = 
+  private def newPlayerHand(player: Player, game: Game): State[Deck, PlayerHand] = 
     for {
+      role <- playerRole(player, game)
       card1 <- Deck.take
       card2 <- Deck.take
     } yield PlayerHand(player, role, card1, card2)
   
-  private def map2[S, A, B, C](sa: State[S, A], sb: State[S, B])(map: (A, B) => C) : State[S, C] = 
+  private def playerRole(player: Player, game: Game): State[Deck, Role] = State {
+    deck => (deck, game.playerRole(player))
+  }
+  
+  private def map2[S, A, B, C](sa: State[S, A], sb: State[S, B])(map: (A, B) => C): State[S, C] = 
     sa.flatMap(a => sb.map(b => map(a, b)))
 }
 
 object Main extends App {
   import Game._
   
+  def print[S](value: Any): State[S, Unit] = State {
+    state => (state, println(value))
+  }
+  
   val players = List(Player("pepe"), Player("paco"), Player("toni"), Player("curro"), Player("perico"))
   
   val result = for {
     game <- start(players)
+    _ <- print(game)
     preFlop <- nextGameHand(game)
+    _ <- print(preFlop)
     flop <- GameHand.next(preFlop)
+    _ <- print(flop)
     turn <- GameHand.next(flop)
+    _ <- print(turn)
     river <- GameHand.next(turn)
-  } yield river
+    _ <- print(river)
+    showdown <- GameHand.next(river)
+    next <- next(game)
+  } yield next
  
   val end = result.run(Deck.shuffle).value
 
-  println(52 - end._1.cards.size)
   println(end._2)
 }

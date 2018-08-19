@@ -25,16 +25,28 @@ class MainSpec extends FlatSpec with Matchers {
     deck.cards should be (deck.cards.distinct)
   }
 
-  "Deck" should "have 51 cards after take" in {
-    val (newDeck, card) = deck.take
+  "Deck" should "have 51 cards after burn" in {
+    val newDeck = deck.burn
 
     newDeck.cards.size should be (51)
   }
 
-  "Card" should "be the first card after take" in {
-    val (newDeck, card) = deck.take
+  "Taken Card" should "be the first card" in {
+    val card = deck.take
 
     deck.cards.head should be (card)
+  }
+  
+  "Game Dealer" should "be toni" in {
+    game.dealer should be (Player("toni"))
+  }
+  
+  "Game Small Blind" should "be pepe" in {
+    game.smallBlind should be (Player("pepe"))
+  }
+  
+  "Game Big Blind" should "be paco" in {
+    game.bigBlind should be (Player("paco"))
   }
   
   "Game Hand" should "start with a pot 0" in {
