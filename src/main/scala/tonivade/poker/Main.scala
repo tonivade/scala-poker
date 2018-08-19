@@ -61,6 +61,7 @@ case object Regular extends Role
 case object Dealer extends Role
 case object SmallBlind extends Role
 case object BigBlind extends Role
+case object Folded extends Role
 
 case class Card(suit: Suit, figure: Figure)
 
@@ -114,9 +115,17 @@ case class HandCards(card1: Card, card2: Card, card3: Card, card4: Option[Card] 
   def setCard5(card: Card): HandCards = copy(card5 = Some(card))
 }
 
-case class PlayerHand(player: Player, role: Role, card1: Card, card2: Card)
+case class PlayerHand(player: Player, role: Role, card1: Card, card2: Card, pot: Integer = 0)
 
-case class GameHand(phase: HandPhase, players: List[PlayerHand], cards: Option[HandCards], pot: Integer = 0) {
+sealed trait Action
+case object Fold extends Action
+case object Call extends Action
+case class Raise(value: Integer) extends Action
+case object AllIn extends Action
+
+case class Pot(history: List[(Player, Action)] = List(), current: Integer = 0)
+
+case class GameHand(phase: HandPhase, players: List[PlayerHand], cards: Option[HandCards], pot: Pot = Pot()) {
   def toPhase(phase: HandPhase): GameHand = copy(phase = phase)
   def setFlop(cards: HandCards): GameHand = copy(cards = Some(cards))
   def setTurn(card: Card): GameHand = copy(cards = cards.map(_.setCard4(card)))

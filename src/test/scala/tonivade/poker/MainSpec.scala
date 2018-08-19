@@ -49,8 +49,8 @@ class MainSpec extends FlatSpec with Matchers {
     game.bigBlind should be (Player("paco"))
   }
   
-  "Game Hand" should "start with a pot 0" in {
-    nextGame.pot should be (0)
+  "Game Hand" should "starts with an empty pot" in {
+    nextGame.pot should be (Pot())
   }
   
   "Game Hand" should "start with a state PreFlop" in {
