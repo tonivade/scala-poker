@@ -2,12 +2,16 @@ package tonivade.poker
 
 import scala.util.Random
 import cats.data.State
+import cats.data.State._
 
 sealed trait Suit
 case object Clubs extends Suit
 case object Spades extends Suit
 case object Diamonds extends Suit
 case object Hearts extends Suit
+object Suit {
+  val all = List(Clubs, Spades, Diamonds, Hearts)
+}
 
 sealed trait Figure extends Ordered[Figure] {
   def value: Integer
@@ -26,6 +30,9 @@ case object Jack extends Figure { val value = 10 }
 case object Queen extends Figure { val value = 11 }
 case object King extends Figure { val value = 12 }
 case object Ace extends Figure { val value = 13 }
+object Figure {
+  val all = List(Ace, Two, Three, Four, Five, Six, Seven, Eight, Nine, Ten, Jack, Queen, King)
+}
 
 sealed trait Hand extends Ordered[Hand] { 
   def value: Integer 
@@ -48,6 +55,7 @@ case object Flop extends HandPhase
 case object Turn extends HandPhase
 case object River extends HandPhase
 case object Showdown extends HandPhase
+case object End extends HandPhase
 
 sealed trait Role
 case object Regular extends Role
@@ -62,58 +70,99 @@ case class Deck(cards: List[Card]) {
 }
 
 object Deck {
-  val cards = for {
-    suit <- List(Clubs, Diamonds, Hearts, Spades)
-    figure <- List(Ace, Two, Three, Four, Five, Six, Seven, Eight, Nine, Ten, Jack, Queen, King)
+  val all = for {
+    suit <- Suit.all
+    figure <- Figure.all
   } yield Card(suit, figure)
 
-  def ordered = Deck(cards)
-  def shuffle = Deck(Random.shuffle(cards))
+  def ordered = Deck(all)
+  def shuffle = Deck(Random.shuffle(all))
 
   def take: State[Deck, Card] = State {
     deck => deck.take
   }
+  
+  def flopCards: State[Deck, HandCards] =
+    for {
+      card1 <- Deck.take
+      card2 <- Deck.take
+      card3 <- Deck.take
+    } yield HandCards(card1, card2, card3)
 }
 
-case class Player(name: String, score: Integer = Player.DEFAULT_SCORE) {
-  def update(value: Integer) = Player(name, score + value)
-}
+case class Player(name: String, score: Integer = Player.DEFAULT_SCORE)
 
 object Player {
-  val DEFAULT_SCORE = 5000;
+  val DEFAULT_SCORE: Integer = 5000
 }
 
-case class HandCards(card1: Card, card2: Card, card3: Card, card4: Option[Card] = None, card5: Option[Card] = None)
+case class HandCards(card1: Card, card2: Card, card3: Card, card4: Option[Card] = None, card5: Option[Card] = None) {
+  def setCard4(card: Card): HandCards = copy(card4 = Some(card))
+  def setCard5(card: Card): HandCards = copy(card5 = Some(card))
+}
+
 case class PlayerHand(player: Player, role: Role, card1: Card, card2: Card)
-case class GameHand(phase: HandPhase, players: List[PlayerHand], cards: HandCards, pot: Integer)
+case class GameHand(phase: HandPhase, players: List[PlayerHand], cards: Option[HandCards], pot: Integer)
+
+object GameHand {
+  def next(current: GameHand): State[Deck, GameHand] = 
+    current.phase match {
+       case PreFlop => for {
+           cards <- Deck.flopCards
+         } yield current.copy(phase = Flop, cards = Some(cards))
+       case Flop => for {
+           card <- Deck.take 
+         } yield current.copy(phase = Turn, cards = current.cards.map(_.copy(card4 = Some(card))))
+       case Turn => for {
+           card <- Deck.take 
+         } yield current.copy(phase = River, cards = current.cards.map(_.copy(card5 = Some(card))))
+       case River => pure(current.copy(phase = Showdown))
+       case Showdown => pure(current.copy(phase = End))
+       case End => pure(current)
+    }
+}
 
 case class Game(players: List[Player], round: Integer = 0) {
   def next = Game(players.filter(_.score > 0), round + 1)
 }
 
 object Game {
-  def start(players: List[Player]) = Game(players)
+  def start(players: List[Player]): State[Deck, Game] = pure(Game(players))
 
-  def initialCards: State[Deck, HandCards] =
+  def nextGameHand(game: Game): State[Deck, GameHand] = 
+    for {
+      players <- playerList(game.players)
+    } yield GameHand(PreFlop, players, None, 0)
+
+  private def playerList(players: List[Player]) : State[Deck, List[PlayerHand]] = 
+    players.map(newPlayerHand(_, Regular))
+      .foldLeft(pure[Deck, List[PlayerHand]](List()))((sa, sb) => map2(sa, sb)((acc, b) => acc :+ b))
+
+  private def newPlayerHand(player: Player, role: Role): State[Deck, PlayerHand] = 
     for {
       card1 <- Deck.take
       card2 <- Deck.take
-      card3 <- Deck.take
-    } yield HandCards(card1, card2, card3)
-
-  def nextGameHand: State[Deck, GameHand] = 
-    for {
-      cards <- initialCards
-    } yield GameHand(PreFlop, List(), cards, 0)
-
-  def newPlayerHand(player: Player): State[Deck, PlayerHand] = 
-    for {
-      card1 <- Deck.take
-      card2 <- Deck.take
-    } yield PlayerHand(player, Regular, card1, card2)
+    } yield PlayerHand(player, role, card1, card2)
+  
+  private def map2[S, A, B, C](sa: State[S, A], sb: State[S, B])(map: (A, B) => C) : State[S, C] = 
+    sa.flatMap(a => sb.map(b => map(a, b)))
 }
 
 object Main extends App {
-  val players = List(Player("curro"), Player("pepe"), Player("paco"))
-  val game = Game.start(players).next
+  import Game._
+  
+  val players = List(Player("pepe"), Player("paco"), Player("toni"), Player("curro"), Player("perico"))
+  
+  val result = for {
+    game <- start(players)
+    preFlop <- nextGameHand(game)
+    flop <- GameHand.next(preFlop)
+    turn <- GameHand.next(flop)
+    river <- GameHand.next(turn)
+  } yield river
+ 
+  val end = result.run(Deck.shuffle).value
+
+  println(52 - end._1.cards.size)
+  println(end._2)
 }
