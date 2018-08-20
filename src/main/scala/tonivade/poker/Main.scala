@@ -80,14 +80,12 @@ case class Deck(cards: List[Card]) {
 object Deck {
   def ordered = Deck(Card.all)
   def shuffle = Deck(Random.shuffle(Card.all))
-
-  def take: State[Deck, Card] = State {
-    deck => (deck.burn, deck.take)
-  }
   
-  def burn: State[Deck, Unit] = State {
-    deck => (deck.burn, ())
-  }
+  def burnAndTake: State[Deck, Card] =
+    for {
+      _ <- burn
+      card <- take 
+    } yield card
 
   def burnAndTake3: State[Deck, HandCards] =
     for {
@@ -96,12 +94,14 @@ object Deck {
       card2 <- take
       card3 <- take
     } yield HandCards(card1, card2, card3)
+
+  def take: State[Deck, Card] = State {
+    deck => (deck.burn, deck.take)
+  }
   
-  def burnAndTake: State[Deck, Card] =
-    for {
-      _ <- burn
-      card <- take 
-    } yield card
+  private def burn: State[Deck, Unit] = State {
+    deck => (deck.burn, ())
+  }
 }
 
 case class Player(name: String, score: Integer = Player.DEFAULT_SCORE)
@@ -146,6 +146,8 @@ case class GameHand(phase: HandPhase, players: List[PlayerHand], cards: Option[H
   }
   
   def pot: Integer = players.map(_.pot).reduce(_ + _)
+  
+  def bid: Integer = players.map(_.pot).max
 }
 
 object GameHand {

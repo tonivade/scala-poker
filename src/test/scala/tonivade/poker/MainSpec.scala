@@ -115,6 +115,6 @@ class MainSpec extends FlatSpec with Matchers {
         .update(pepe, Call(1))
 
     newHand.pot should be (6)
-    newHand.players.foldLeft(0)((a, b) => a + b.pot) should be (6)
+    newHand.bid should be (2)
   }
 }
