@@ -43,26 +43,6 @@ class MainSpec extends FlatSpec with Matchers {
   "Strait" should "be grater than Pair" in {
     Strait.compare(Pair) should be > 0
   }
-
-  "Deck" should "have 52 cards" in {
-    deck.cards.size should be (52)
-  }
-
-  "Deck" should "not have duplicated cards" in {
-    deck.cards should be (deck.cards.distinct)
-  }
-
-  "Deck" should "have 51 cards after burn" in {
-    val newDeck = deck.burn
-
-    newDeck.cards.size should be (51)
-  }
-
-  "Taken Card" should "be the first card" in {
-    val card = deck.take
-
-    deck.cards.head should be (card)
-  }
   
   "Game Dealer" should "be toni" in {
     game.dealer should be (toni)
