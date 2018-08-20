@@ -14,7 +14,7 @@ object Suit {
 }
 
 sealed trait Figure extends Ordered[Figure] {
-  def value: Integer
+  def value: Int
   def compare(that: Figure) = this.value - that.value
 }
 case object Two extends Figure { val value = 1 }

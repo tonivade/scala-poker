@@ -4,7 +4,7 @@ import cats.data.State
 import cats.data.State._
 
 sealed trait Hand extends Ordered[Hand] { 
-  def value: Integer 
+  def value: Int 
   def compare(that: Hand) = this.value - that.value
 }
 case object Highcard extends Hand { val value = 0 }
@@ -32,16 +32,16 @@ case object SmallBlind extends Role
 case object BigBlind extends Role
 case object Folded extends Role
 
-case class Player(name: String, score: Integer = Player.DEFAULT_SCORE)
+case class Player(name: String, score: Int = Player.DEFAULT_SCORE)
 
 object Player {
-  val DEFAULT_SCORE: Integer = 5000
+  val DEFAULT_SCORE: Int = 5000
 }
 
 sealed trait Action
 case object Fold extends Action
-case class Call(value: Integer) extends Action
-case class Raise(value: Integer, raise: Integer) extends Action
+case class Call(value: Int) extends Action
+case class Raise(value: Int, raise: Int) extends Action
 case object AllIn extends Action
 
 case class HandCards(card1: Card, card2: Card, card3: Card, card4: Option[Card] = None, card5: Option[Card] = None) {
@@ -49,23 +49,33 @@ case class HandCards(card1: Card, card2: Card, card3: Card, card4: Option[Card] 
   def setCard5(card: Card): HandCards = copy(card5 = Some(card))
 }
 
-case class PlayerHand(player: Player, role: Role, card1: Card, card2: Card, pot: Integer = 0) {
+case class PlayerHand(player: Player, role: Role, card1: Card, card2: Card, pot: Int = 0) {
   def update(action: Action): PlayerHand = 
     action match {
       case Fold => copy(role = Folded)
+      case AllIn => copy(pot = player.score)
       case Call(value) => copy(pot = pot + value)
       case Raise(value, raise) => copy(pot = pot + value + raise)
-      case AllIn => copy(pot = player.score)
     }
 }
 
 case class GameHand(phase: HandPhase, players: List[PlayerHand], cards: Option[HandCards]) {
+  def pot: Int = players.map(_.pot).reduce(_ + _)
+  def bid: Int = players.map(_.pot).max
+
   def toPhase(phase: HandPhase): GameHand = copy(phase = phase)
   def setFlop(cards: HandCards): GameHand = copy(cards = Some(cards))
   def setTurn(card: Card): GameHand = copy(cards = cards.map(_.setCard4(card)))
   def setRiver(card: Card): GameHand = copy(cards = cards.map(_.setCard5(card)))
   
-  def update(player: Player, action: Action): GameHand = {
+  def fold(player: Player): GameHand = update(player, Fold)
+  def allIn(player: Player): GameHand = update(player, AllIn)
+  def call(player: Player): GameHand = 
+    diff(player).map(Call(_)).map(update(player, _)).getOrElse(this)
+  def raise(player: Player, value: Int): GameHand = 
+    diff(player).map(Raise(_, value)).map(update(player, _)).getOrElse(this)
+  
+  private def update(player: Player, action: Action): GameHand = {
     val newPlayers = players.map {
       playerHand => if (playerHand.player == player) playerHand.update(action) else playerHand
     }
@@ -73,9 +83,8 @@ case class GameHand(phase: HandPhase, players: List[PlayerHand], cards: Option[H
     GameHand(phase, newPlayers, cards)
   }
   
-  def pot: Integer = players.map(_.pot).reduce(_ + _)
-  
-  def bid: Integer = players.map(_.pot).max
+  private def diff(player: Player): Option[Int] =
+    players.find(_.player == player).map(bid - _.pot).filter(_ >= 0)
 }
 
 object GameHand {
@@ -107,7 +116,7 @@ object GameHand {
     pure(current.toPhase(Showdown))
 }
 
-case class Game(players: List[Player], round: Integer = 1) {
+case class Game(players: List[Player], round: Int = 1) {
   def dealer: Player = players.head
   def smallBlind: Player = players.tail.head
   def bigBlind: Player = players.tail.tail.head

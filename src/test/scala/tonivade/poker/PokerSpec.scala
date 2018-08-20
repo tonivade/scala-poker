@@ -3,7 +3,7 @@ package tonivade.poker
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers
 
-class MainSpec extends FlatSpec with Matchers {
+class PokerSpec extends FlatSpec with Matchers {
   
   val toni = Player("toni")
   val pepe = Player("pepe")
@@ -89,10 +89,10 @@ class MainSpec extends FlatSpec with Matchers {
   "Game Hand" should "be updated with two raises two calls to 6" in {
     val hand = preFlop.runA(deck).value
     val newHand = hand
-        .update(pepe, Raise(0, 1))
-        .update(paco, Raise(1, 1))
-        .update(toni, Call(2))
-        .update(pepe, Call(1))
+        .raise(pepe, 1)
+        .raise(paco, 1)
+        .call(toni)
+        .call(pepe)
 
     newHand.pot should be (6)
     newHand.bid should be (2)
