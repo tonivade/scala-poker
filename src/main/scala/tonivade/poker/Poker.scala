@@ -3,21 +3,6 @@ package tonivade.poker
 import cats.data.State
 import cats.data.State._
 
-sealed trait Hand extends Ordered[Hand] { 
-  def value: Int 
-  def compare(that: Hand) = this.value - that.value
-}
-case object Highcard extends Hand { val value = 0 }
-case object Pair extends Hand { val value = 1 }
-case object TwoPairs extends Hand { val value = 2 }
-case object ThreeOfAKind extends Hand { val value = 3 }
-case object Strait extends Hand { val value = 4 }
-case object Flush extends Hand { val value = 5 }
-case object FullHouse extends Hand { val value = 6 }
-case object FourOfAKind extends Hand { val value = 7 }
-case object StraitFlush extends Hand { val value = 8 }
-case object RoyalFlush extends Hand { val value = 9 }
-
 sealed trait HandPhase
 case object PreFlop extends HandPhase
 case object Flop extends HandPhase
@@ -47,9 +32,15 @@ case object AllIn extends Action
 case class HandCards(card1: Card, card2: Card, card3: Card, card4: Option[Card] = None, card5: Option[Card] = None) {
   def setCard4(card: Card): HandCards = copy(card4 = Some(card))
   def setCard5(card: Card): HandCards = copy(card5 = Some(card))
+  
+  def combinations: List[List[Card]] = toList.combinations(3).toList
+  
+  private def toList: List[Card] = List(card1, card2, card3) ++ card4.toList ++ card5.toList
 }
 
 case class PlayerHand(player: Player, role: Role, card1: Card, card2: Card, pot: Int = 0) {
+  def hand(cards: HandCards): Hand = ???
+
   def update(action: Action): PlayerHand = 
     action match {
       case Fold => copy(role = Folded)
@@ -57,6 +48,15 @@ case class PlayerHand(player: Player, role: Role, card1: Card, card2: Card, pot:
       case Call(value) => copy(pot = pot + value)
       case Raise(value, raise) => copy(pot = pot + value + raise)
     }
+
+  private def hands(cards: HandCards): List[List[Card]] = 
+    for {
+      combination <- cards.combinations
+    } yield card1 :: card2 :: combination
+}
+
+case class HandOrdering(cards: HandCards) extends Ordering[PlayerHand] {
+  def compare(a: PlayerHand, b: PlayerHand) = a.hand(cards) compare b.hand(cards)
 }
 
 case class GameHand(phase: HandPhase, players: List[PlayerHand], cards: Option[HandCards]) {
@@ -75,13 +75,19 @@ case class GameHand(phase: HandPhase, players: List[PlayerHand], cards: Option[H
   def raise(player: Player, value: Int): GameHand = 
     diff(player).map(Raise(_, value)).map(update(player, _)).getOrElse(this)
   
-  private def update(player: Player, action: Action): GameHand = {
-    val newPlayers = players.map {
+  def winer: Option[Player] = 
+    cards match {
+      case Some(cards) => players.sorted(HandOrdering(cards).reverse).headOption.map(_.player)
+      case None => None
+    }
+  
+  private def update(player: Player, action: Action): GameHand = 
+    copy(players = updatePlayer(player, action))
+  
+  private def updatePlayer(player: Player, action: Action): List[PlayerHand] = 
+    players.map {
       playerHand => if (playerHand.player == player) playerHand.update(action) else playerHand
     }
-
-    GameHand(phase, newPlayers, cards)
-  }
   
   private def diff(player: Player): Option[Int] =
     players.find(_.player == player).map(bid - _.pot).filter(_ >= 0)

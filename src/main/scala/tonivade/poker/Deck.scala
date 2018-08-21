@@ -17,6 +17,7 @@ sealed trait Figure extends Ordered[Figure] {
   def value: Int
   def compare(that: Figure) = this.value - that.value
 }
+case object Ace extends Figure { val value = 0 }
 case object Two extends Figure { val value = 1 }
 case object Three extends Figure { val value = 2 }
 case object Four extends Figure { val value = 3 }
@@ -29,7 +30,6 @@ case object Ten extends Figure { val value = 9 }
 case object Jack extends Figure { val value = 10 }
 case object Queen extends Figure { val value = 11 }
 case object King extends Figure { val value = 12 }
-case object Ace extends Figure { val value = 13 }
 object Figure {
   val all = List(Ace, Two, Three, Four, Five, Six, Seven, Eight, Nine, Ten, Jack, Queen, King)
 }
