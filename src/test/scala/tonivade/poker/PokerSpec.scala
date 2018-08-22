@@ -79,7 +79,16 @@ class PokerSpec extends FlatSpec with Matchers {
     cards.combinations.size should be (10)
   }
   
-  "GameHand with tree aces" should "win two pair and highcard" in {
+  "GameHand in preFlop" should "no have winner" in {
+    val toniHand = PlayerHand(toni, Dealer, Card(Clubs, Ace), Card(Spades, Ace))
+    val pacoHand = PlayerHand(paco, SmallBlind, Card(Clubs, Four), Card(Spades, Five))
+    val pepeHand = PlayerHand(pepe, BigBlind, Card(Hearts, Ace), Card(Diamonds, King))
+    val hand = GameHand(Flop, List(toniHand, pacoHand, pepeHand), None)
+    
+    hand.winner should be (None)
+  }
+  
+  "GameHand with tree aces" should "win to pair" in {
     val toniHand = PlayerHand(toni, Dealer, Card(Clubs, Ace), Card(Spades, Ace))
     val pacoHand = PlayerHand(paco, SmallBlind, Card(Clubs, Four), Card(Spades, Five))
     val pepeHand = PlayerHand(pepe, BigBlind, Card(Hearts, Ace), Card(Diamonds, King))
@@ -88,7 +97,21 @@ class PokerSpec extends FlatSpec with Matchers {
     
     val (winner, winnerHand) = hand.winner.get
 
+    winnerHand.bestHand should be (ThreeOfAKind)
     winner should be (toni)
+  }
+  
+  "GameHand with flull king aces" should "win to three of a kind" in {
+    val toniHand = PlayerHand(toni, Dealer, Card(Clubs, Ace), Card(Spades, Ace))
+    val pacoHand = PlayerHand(paco, SmallBlind, Card(Clubs, Four), Card(Spades, Five))
+    val pepeHand = PlayerHand(pepe, BigBlind, Card(Hearts, Ace), Card(Diamonds, King))
+    val cards = HandCards(Card(Diamonds, Ace), Card(Spades, King), Card(Spades, Jack), Some(Card(Hearts, King)))
+    val hand = GameHand(Flop, List(toniHand, pacoHand, pepeHand), Some(cards))
+    
+    val (winner, winnerHand) = hand.winner.get
+
+    winnerHand.bestHand should be (FullHouse)
+    winner should be (pepe)
   }
   
   "Game Hand" should "start with a state PreFlop" in {
