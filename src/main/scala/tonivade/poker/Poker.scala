@@ -35,11 +35,12 @@ case class HandCards(card1: Card, card2: Card, card3: Card, card4: Option[Card] 
   
   def combinations: List[List[Card]] = toList.combinations(3).toList
   
-  private def toList: List[Card] = List(card1, card2, card3) ++ card4.toList ++ card5.toList
+  private lazy val toList: List[Card] = List(card1, card2, card3) ++ card4.toList ++ card5.toList
 }
 
 case class PlayerHand(player: Player, role: Role, card1: Card, card2: Card, pot: Int = 0) {
-  def hand(cards: HandCards): Hand = ???
+  def bestHand(cards: HandCards): (Player, FullHand) = 
+    (player, hands(cards).reduce((a, b) => if (a.bestHand > b.bestHand) a else b))
 
   def update(action: Action): PlayerHand = 
     action match {
@@ -49,19 +50,15 @@ case class PlayerHand(player: Player, role: Role, card1: Card, card2: Card, pot:
       case Raise(value, raise) => copy(pot = pot + value + raise)
     }
 
-  private def hands(cards: HandCards): List[List[Card]] = 
+  private def hands(cards: HandCards): List[FullHand] = 
     for {
       combination <- cards.combinations
-    } yield card1 :: card2 :: combination
-}
-
-case class HandOrdering(cards: HandCards) extends Ordering[PlayerHand] {
-  def compare(a: PlayerHand, b: PlayerHand) = a.hand(cards) compare b.hand(cards)
+    } yield FullHand(card1, card2, combination(0), combination(1), combination(2))
 }
 
 case class GameHand(phase: HandPhase, players: List[PlayerHand], cards: Option[HandCards]) {
   def pot: Int = players.map(_.pot).reduce(_ + _)
-  def bid: Int = players.map(_.pot).max
+  def bet: Int = players.map(_.pot).max
 
   def toPhase(phase: HandPhase): GameHand = copy(phase = phase)
   def setFlop(cards: HandCards): GameHand = copy(cards = Some(cards))
@@ -75,11 +72,8 @@ case class GameHand(phase: HandPhase, players: List[PlayerHand], cards: Option[H
   def raise(player: Player, value: Int): GameHand = 
     diff(player).map(Raise(_, value)).map(update(player, _)).getOrElse(this)
   
-  def winer: Option[Player] = 
-    cards match {
-      case Some(cards) => players.sorted(HandOrdering(cards).reverse).headOption.map(_.player)
-      case None => None
-    }
+  def winner = 
+    cards.map(c => players.map(_.bestHand(c)).reduce((a, b) => if (a._2.bestHand > b._2.bestHand) a else b))
   
   private def update(player: Player, action: Action): GameHand = 
     copy(players = updatePlayer(player, action))
@@ -90,7 +84,7 @@ case class GameHand(phase: HandPhase, players: List[PlayerHand], cards: Option[H
     }
   
   private def diff(player: Player): Option[Int] =
-    players.find(_.player == player).map(bid - _.pot).filter(_ >= 0)
+    players.find(_.player == player).map(bet - _.pot).filter(_ >= 0)
 }
 
 object GameHand {

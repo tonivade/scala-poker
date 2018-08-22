@@ -62,13 +62,12 @@ object Hand {
 }
 
 case class FullHand(card1: Card, card2: Card, card3: Card, card4: Card, card5: Card) {
-  lazy val toList: List[Card] = card1 :: card2 :: card3 :: card4 :: card5 :: Nil
   lazy val figures: List[Figure] = toList.map(_.figure)
   lazy val suits: List[Suit] = toList.map(_.suit)
   lazy val values: List[Int] = figures.map(_.value)
-  
-  def hands: List[Hand] = Hand.all.filter(_.eval(this))
-  def value: (Hand, Int) = (hands.max, values.sum)
+
+  lazy val hands: List[Hand] = Hand.all.filter(_.eval(this))
+  lazy val bestHand: Hand = hands.max
 
   def sameSuit: Boolean = suits.distinct.size == 1
   def count: Map[Figure, Int] = toList.groupBy(_.figure).mapValues(_.size)
@@ -77,5 +76,6 @@ case class FullHand(card1: Card, card2: Card, card3: Card, card4: Card, card5: C
   def min: Figure = figures.min
   def conseq: Int = Math.max(conseq(values), conseq(values.map(x => (x + 4) % 13))) + 1
   
+  private lazy val toList: List[Card] = card1 :: card2 :: card3 :: card4 :: card5 :: Nil
   private def conseq(list: List[Int]): Int = list.sorted.sliding(2).count(a => a(0) + 1 == a(1))
 }

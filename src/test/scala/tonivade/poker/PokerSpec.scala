@@ -79,40 +79,58 @@ class PokerSpec extends FlatSpec with Matchers {
     cards.combinations.size should be (10)
   }
   
+  "GameHand with tree aces" should "win two pair and highcard" in {
+    val toniHand = PlayerHand(toni, Dealer, Card(Clubs, Ace), Card(Spades, Ace))
+    val pacoHand = PlayerHand(paco, SmallBlind, Card(Clubs, Four), Card(Spades, Five))
+    val pepeHand = PlayerHand(pepe, BigBlind, Card(Hearts, Ace), Card(Diamonds, King))
+    val cards = HandCards(Card(Diamonds, Ace), Card(Hearts, Three), Card(Spades, Jack))
+    val hand = GameHand(Flop, List(toniHand, pacoHand, pepeHand), Some(cards))
+    
+    val (winner, winnerHand) = hand.winner.get
+
+    winner should be (toni)
+  }
+  
   "Game Hand" should "start with a state PreFlop" in {
     val hand = preFlop.runA(deck).value
+
     hand.phase should be (PreFlop)
   }
   
   "Game Hand" should "Flop follow PreFlop" in {
     val hand = flop.runA(deck).value
+
     hand.phase should be (Flop)
   }
   
   "Game Hand" should "Turn follow Flop" in {
     val hand = turn.runA(deck).value
+
     hand.phase should be (Turn)
   }
   
   "Game Hand" should "River follow Turn" in {
     val hand = river.runA(deck).value
+
     hand.phase should be (River)
   }
   
   "Game Hand" should "Showdown follow River" in {
     val hand = showdown.runA(deck).value
+
     hand.phase should be (Showdown)
   }
   
   "Game Hand" should "be updated with two raises two calls to 6" in {
     val hand = preFlop.runA(deck).value
+
     val newHand = hand
         .raise(pepe, 1)
         .raise(paco, 1)
         .call(toni)
         .call(pepe)
-
+        
     newHand.pot should be (6)
-    newHand.bid should be (2)
+    newHand.bet should be (2)
   }
 }
