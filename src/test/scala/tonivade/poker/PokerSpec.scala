@@ -64,23 +64,17 @@ class PokerSpec extends FlatSpec with Matchers {
   "Hand Cards with 3 card" should "have one combination" in {
     val cards = HandCards(Card(Clubs, Two), Card(Spades, Three), Card(Hearts, Queen))
 
-    cards.combinations.foreach(println)
-    
     cards.combinations.size should be (1)
   }
   
   "Hand Cards with 4 cards" should "have 4 combinations" in {
     val cards = HandCards(Card(Clubs, Two), Card(Spades, Three), Card(Hearts, Queen), Some(Card(Diamonds, Jack)))
     
-    cards.combinations.foreach(println)
-    
     cards.combinations.size should be (4)
   }
   
   "Hand Cards with 5 cards" should "have 6 combinations" in {
     val cards = HandCards(Card(Clubs, Two), Card(Spades, Three), Card(Hearts, Queen), Some(Card(Diamonds, Jack)), Some(Card(Hearts, Four)))
-    
-    cards.combinations.foreach(println)
     
     cards.combinations.size should be (10)
   }
