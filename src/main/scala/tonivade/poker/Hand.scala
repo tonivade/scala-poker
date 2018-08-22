@@ -1,22 +1,22 @@
 package tonivade.poker
 
-sealed trait Hand extends Ordered[Hand] { 
+sealed trait Hand extends Ordered[Hand] {
   def value: Int
   def eval(hand: FullHand): Boolean
   def compare(that: Hand) = this.value - that.value
 }
 
-case object Highcard extends Hand { 
+case object Highcard extends Hand {
   val value = 0 
   def eval(hand: FullHand): Boolean = true
 }
 
-case object Pair extends Hand { 
-  val value = 1 
-  def eval(hand: FullHand): Boolean = hand.count.exists(_._2 == 2)
+case object Pair extends Hand {
+  val value = 1
+  def eval(hand: FullHand): Boolean = hand.count.filter(_._2 == 2).size == 1
 }
 
-case object TwoPairs extends Hand { 
+case object TwoPairs extends Hand {
   val value = 2 
   def eval(hand: FullHand): Boolean = hand.count.filter(_._2 == 2).size == 2
 }
@@ -28,7 +28,7 @@ case object ThreeOfAKind extends Hand {
 
 case object Strait extends Hand { 
   val value = 4 
-  def eval(hand: FullHand): Boolean = hand.conseq == 4
+  def eval(hand: FullHand): Boolean = hand.conseq == 5
 }
 
 case object Flush extends Hand { 
@@ -47,19 +47,14 @@ case object FourOfAKind extends Hand {
   def eval(hand: FullHand): Boolean = hand.count.exists(_._2 == 4)
 }
 
-case object StraitFlush extends Hand { 
+case object StraitFlush extends Hand {
   val value = 8 
-  def eval(hand: FullHand): Boolean = hand.sameSuit && hand.conseq == 4
+  def eval(hand: FullHand): Boolean = hand.sameSuit && hand.conseq == 5
 }
 
-case object RoyalFlush extends Hand { 
+case object RoyalFlush extends Hand {
   val value = 9 
-  def eval(hand: FullHand): Boolean = hand.sameSuit && 
-    hand.contains(Ace) &&
-    hand.contains(King) &&
-    hand.contains(Queen) &&
-    hand.contains(Jack) &&
-    hand.contains(Ten)
+  def eval(hand: FullHand): Boolean = hand.sameSuit && hand.conseq == 5 && hand.min == Ten
 }
 
 object Hand {
@@ -68,10 +63,19 @@ object Hand {
 
 case class FullHand(card1: Card, card2: Card, card3: Card, card4: Card, card5: Card) {
   lazy val toList: List[Card] = card1 :: card2 :: card3 :: card4 :: card5 :: Nil
+  lazy val figures: List[Figure] = toList.map(_.figure)
+  lazy val suits: List[Suit] = toList.map(_.suit)
+  lazy val values: List[Int] = figures.map(_.value)
+  
+  def hands: List[Hand] = Hand.all.filter(_.eval(this))
+  def value: (Hand, Int) = (hands.max, values.sum)
 
-  def sameSuit: Boolean = toList.map(_.suit).distinct.size == 1
+  def sameSuit: Boolean = suits.distinct.size == 1
   def count: Map[Figure, Int] = toList.groupBy(_.figure).mapValues(_.size)
-  def contains(figure: Figure): Boolean = toList.map(_.figure).contains(figure)
-  def conseq: Int = 
-    toList.map(_.figure).map(_.value).sorted.sliding(2).toArray.count(a => (a(0) + 1) % 13 == a(1))
+  def contains(figure: Figure): Boolean = figures.contains(figure)
+  def max: Figure = figures.max
+  def min: Figure = figures.min
+  def conseq: Int = Math.max(conseq(values), conseq(values.map(x => (x + 4) % 13))) + 1
+  
+  private def conseq(list: List[Int]): Int = list.sorted.sliding(2).count(a => a(0) + 1 == a(1))
 }
