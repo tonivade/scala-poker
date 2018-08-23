@@ -61,13 +61,15 @@ object Hand {
   val all = List(RoyalFlush, StraitFlush, FourOfAKind, FullHouse, Flush, Strait, ThreeOfAKind, TwoPairs, Pair, Highcard)
 }
 
-case class FullHand(card1: Card, card2: Card, card3: Card, card4: Card, card5: Card) {
+case class FullHand(card1: Card, card2: Card, card3: Card, card4: Card, card5: Card) extends Ordered[FullHand] {
   lazy val figures: List[Figure] = toList.map(_.figure)
   lazy val suits: List[Suit] = toList.map(_.suit)
   lazy val values: List[Int] = figures.map(_.value)
 
   lazy val hands: List[Hand] = Hand.all.filter(_.eval(this))
   lazy val bestHand: Hand = hands.max
+  
+  def compare(that: FullHand): Int = this.bestHand compare that.bestHand
 
   def sameSuit: Boolean = suits.distinct.size == 1
   def count: Map[Figure, Int] = toList.groupBy(_.figure).mapValues(_.size)

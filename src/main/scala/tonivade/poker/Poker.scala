@@ -73,7 +73,7 @@ case class GameHand(phase: HandPhase, players: List[PlayerHand], cards: Option[H
     diff(player).map(Raise(_, value)).map(update(player, _)).getOrElse(this)
   
   def winner = 
-    cards.map(c => players.map(_.bestHand(c)).reduce((a, b) => if (a._2.bestHand > b._2.bestHand) a else b))
+    cards.map(c => players.map(_.bestHand(c)).reduce((a, b) => if (a._2 > b._2) a else b))
   
   private def update(player: Player, action: Action): GameHand = 
     copy(players = updatePlayer(player, action))
@@ -121,12 +121,12 @@ case class Game(players: List[Player], round: Int = 1) {
   def smallBlind: Player = players.tail.head
   def bigBlind: Player = players.tail.tail.head
 
-  def next = {
+  def next: Game = {
     val newPlayers = players.filter(_.score > 0)
     Game(newPlayers.tail :+ newPlayers.head, round + 1)
   }
   
-  def playerRole(player: Player) = 
+  def playerRole(player: Player): Role = 
     player match {
       case Player(name, _) if name == dealer.name => Dealer
       case Player(name, _) if name == smallBlind.name => SmallBlind
