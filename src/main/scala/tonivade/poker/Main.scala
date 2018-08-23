@@ -39,7 +39,13 @@ object Main extends App {
 }
 
 object Console {
+  import scala.io.StdIn.readLine
+
   def print[S](value: Any): State[S, Unit] = State {
     state => (state, println(value))
+  }
+  
+  def read[S]: State[S, String] = State {
+    state => (state, readLine())
   }
 }

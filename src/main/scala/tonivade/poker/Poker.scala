@@ -103,10 +103,10 @@ object GameHand {
       case Showdown => pure(current)
     }
   
-  def nextTurn: State[GameHand, Unit] = State {
-    hand => (hand.nextTurn, ())
-  }
+  def turn: State[GameHand, Player] = inspect(_.turn)
   
+  def nextTurn: State[GameHand, Unit] = modify(_.nextTurn)  
+
   def winner(current: GameHand): State[Deck, Option[(Player, FullHand)]] =
     pure(current.winner)
   
@@ -164,14 +164,10 @@ object Game {
 
   private def newPlayerHand(player: Player, game: Game): State[Deck, PlayerHand] = 
     for {
-      role <- playerRole(player, game)
+      role <- pure(game.playerRole(player))
       card1 <- Deck.take
       card2 <- Deck.take
     } yield PlayerHand(player, role, card1, card2)
-  
-  private def playerRole(player: Player, game: Game): State[Deck, Role] = State {
-    deck => (deck, game.playerRole(player))
-  }
   
   private def map2[S, A, B, C](sa: State[S, A], sb: State[S, B])(map: (A, B) => C): State[S, C] = 
     sa.flatMap(a => sb.map(b => map(a, b)))

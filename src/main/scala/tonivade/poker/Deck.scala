@@ -66,11 +66,7 @@ object Deck {
       card3 <- take
     } yield HandCards(card1, card2, card3)
 
-  def take: State[Deck, Card] = State {
-    deck => (deck.burn, deck.take)
-  }
+  def take: State[Deck, Card] = inspect(_.take)
   
-  private def burn: State[Deck, Unit] = State {
-    deck => (deck.burn, ())
-  }
+  private def burn: State[Deck, Unit] = modify(_.burn)
 }
