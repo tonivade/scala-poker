@@ -59,6 +59,12 @@ case class PlayerHand(player: Player, role: Role, card1: Card, card2: Card, pot:
 case class GameHand(phase: HandPhase, players: List[PlayerHand], cards: Option[HandCards]) {
   def pot: Int = players.map(_.pot).reduce(_ + _)
   def bet: Int = players.map(_.pot).max
+  
+  val turn: Player = players.head.player
+  def nextTurn: GameHand = {
+    val newPlayers = players.filter(_.role == Folded)
+    copy(players = newPlayers.tail :+ newPlayers.head)
+  }
 
   def toPhase(phase: HandPhase): GameHand = copy(phase = phase)
   def setFlop(cards: HandCards): GameHand = copy(cards = Some(cards))
@@ -72,7 +78,7 @@ case class GameHand(phase: HandPhase, players: List[PlayerHand], cards: Option[H
   def raise(player: Player, value: Int): GameHand = 
     diff(player).map(Raise(_, value)).map(update(player, _)).getOrElse(this)
   
-  def winner = 
+  def winner: Option[(Player, FullHand)] = 
     cards.map(c => players.map(_.bestHand(c)).reduce((a, b) => if (a._2 > b._2) a else b))
   
   private def update(player: Player, action: Action): GameHand = 
@@ -88,7 +94,7 @@ case class GameHand(phase: HandPhase, players: List[PlayerHand], cards: Option[H
 }
 
 object GameHand {
-  def next(current: GameHand): State[Deck, GameHand] = 
+  def nextPhase(current: GameHand): State[Deck, GameHand] = 
     current.phase match {
       case PreFlop => toFlop(current)
       case Flop => toTurn(current)
@@ -97,22 +103,29 @@ object GameHand {
       case Showdown => pure(current)
     }
   
-  def toFlop(current: GameHand): State[Deck, GameHand] = 
+  def nextTurn: State[GameHand, Unit] = State {
+    hand => (hand.nextTurn, ())
+  }
+  
+  def winner(current: GameHand): State[Deck, Option[(Player, FullHand)]] =
+    pure(current.winner)
+  
+  private def toFlop(current: GameHand): State[Deck, GameHand] = 
     for {
       cards <- Deck.burnAndTake3
     } yield current.toPhase(Flop).setFlop(cards)
   
-  def toTurn(current: GameHand): State[Deck, GameHand] =
+  private def toTurn(current: GameHand): State[Deck, GameHand] =
     for {
       card <- Deck.burnAndTake 
     } yield current.toPhase(Turn).setTurn(card)
   
-  def toRiver(current: GameHand): State[Deck, GameHand] =
+  private def toRiver(current: GameHand): State[Deck, GameHand] =
     for {
       card <- Deck.burnAndTake 
     } yield current.toPhase(River).setRiver(card)
     
-  def toShowdown(current: GameHand): State[Deck, GameHand] =
+  private def toShowdown(current: GameHand): State[Deck, GameHand] =
     pure(current.toPhase(Showdown))
 }
 
@@ -165,5 +178,10 @@ object Game {
 }
 
 object BetTurn {
+  import GameHand._
   
+  val betLoop: State[GameHand, Unit] = 
+    for {
+      _ <- nextTurn
+    } yield ()
 }
