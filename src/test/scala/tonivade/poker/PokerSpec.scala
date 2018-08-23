@@ -150,10 +150,10 @@ class PokerSpec extends FlatSpec with Matchers {
     val hand = preFlop.runA(deck).value
 
     val newHand = hand
-        .raise(pepe, 1)
-        .raise(paco, 1)
-        .call(toni)
-        .call(pepe)
+        .update(pepe, Raise(1))
+        .update(paco, Raise(1))
+        .update(toni, Call)
+        .update(pepe, Call)
         
     newHand.pot should be (6)
     newHand.bet should be (2)

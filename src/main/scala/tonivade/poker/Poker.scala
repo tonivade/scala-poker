@@ -20,13 +20,30 @@ case object Folded extends Role
 case class Player(name: String, score: Int = Player.DEFAULT_SCORE)
 
 object Player {
+  import Console._
+  
   val DEFAULT_SCORE: Int = 5000
+  
+  def speak[S](player: Player): State[S, Action] = 
+    for {
+      _ <- print(s"$player turn")
+      string <- read
+    } yield toAction(string).getOrElse(Fold)
+    
+  def toAction(string: String): Option[Action] = 
+    string match {
+      case "fold" => Some(Fold)
+      case "allin" => Some(AllIn)
+      case "call" => Some(Call)
+      case "raise" => Some(Raise(1))
+      case _ => None
+    }
 }
 
 sealed trait Action
 case object Fold extends Action
-case class Call(value: Int) extends Action
-case class Raise(value: Int, raise: Int) extends Action
+case object Call extends Action
+case class Raise(raise: Int) extends Action
 case object AllIn extends Action
 
 case class HandCards(card1: Card, card2: Card, card3: Card, card4: Option[Card] = None, card5: Option[Card] = None) {
@@ -41,14 +58,11 @@ case class HandCards(card1: Card, card2: Card, card3: Card, card4: Option[Card] 
 case class PlayerHand(player: Player, role: Role, card1: Card, card2: Card, pot: Int = 0) {
   def bestHand(cards: HandCards): (Player, FullHand) = 
     (player, hands(cards).reduce((a, b) => if (a.bestHand > b.bestHand) a else b))
-
-  def update(action: Action): PlayerHand = 
-    action match {
-      case Fold => copy(role = Folded)
-      case AllIn => copy(pot = player.score)
-      case Call(value) => copy(pot = pot + value)
-      case Raise(value, raise) => copy(pot = pot + value + raise)
-    }
+  
+  def fold = copy(role = Folded)
+  def allIn = copy(pot = player.score)
+  def call(value: Int) = copy(pot = pot + value)
+  def raise(value: Int, raise: Int) = copy(pot = pot + value + raise)
 
   private def hands(cards: HandCards): List[FullHand] = 
     for {
@@ -59,10 +73,11 @@ case class PlayerHand(player: Player, role: Role, card1: Card, card2: Card, pot:
 case class GameHand(phase: HandPhase, players: List[PlayerHand], cards: Option[HandCards]) {
   def pot: Int = players.map(_.pot).reduce(_ + _)
   def bet: Int = players.map(_.pot).max
+  def noMoreBets: Boolean = players.exists(_.pot < bet)
   
   val turn: Player = players.head.player
   def nextTurn: GameHand = {
-    val newPlayers = players.filter(_.role == Folded)
+    val newPlayers = players.filter(_.role != Folded)
     copy(players = newPlayers.tail :+ newPlayers.head)
   }
 
@@ -71,22 +86,30 @@ case class GameHand(phase: HandPhase, players: List[PlayerHand], cards: Option[H
   def setTurn(card: Card): GameHand = copy(cards = cards.map(_.setCard4(card)))
   def setRiver(card: Card): GameHand = copy(cards = cards.map(_.setCard5(card)))
   
-  def fold(player: Player): GameHand = update(player, Fold)
-  def allIn(player: Player): GameHand = update(player, AllIn)
-  def call(player: Player): GameHand = 
-    diff(player).map(Call(_)).map(update(player, _)).getOrElse(this)
-  def raise(player: Player, value: Int): GameHand = 
-    diff(player).map(Raise(_, value)).map(update(player, _)).getOrElse(this)
+  def update(player: Player, action: Action): GameHand =
+    action match {
+      case Fold => fold(player)
+      case AllIn => allIn(player)
+      case Call => call(player)
+      case Raise(value) => raise(player, value)
+    }
   
   def winner: Option[(Player, FullHand)] = 
     cards.map(c => players.map(_.bestHand(c)).reduce((a, b) => if (a._2 > b._2) a else b))
   
-  private def update(player: Player, action: Action): GameHand = 
-    copy(players = updatePlayer(player, action))
+  private def fold(player: Player): GameHand = update(player)(_.fold)
+  private def allIn(player: Player): GameHand = update(player)(_.allIn)
+  private def call(player: Player): GameHand = 
+    diff(player).map(value => update(player)(_.call(value))).getOrElse(this)
+  private def raise(player: Player, raise: Int): GameHand = 
+    diff(player).map(value => update(player)(_.raise(value, raise))).getOrElse(this)
   
-  private def updatePlayer(player: Player, action: Action): List[PlayerHand] = 
+  private def update(player: Player)(action: PlayerHand => PlayerHand): GameHand = 
+    copy(players = updatePlayer(player)(action))
+  
+  private def updatePlayer(player: Player)(action: PlayerHand => PlayerHand): List[PlayerHand] = 
     players.map {
-      playerHand => if (playerHand.player == player) playerHand.update(action) else playerHand
+      playerHand => if (playerHand.player == player) action(playerHand) else playerHand
     }
   
   private def diff(player: Player): Option[Int] =
@@ -103,9 +126,13 @@ object GameHand {
       case Showdown => pure(current)
     }
   
-  def turn: State[GameHand, Player] = inspect(_.turn)
+  def betOver: State[GameHand, Boolean] = inspect(_.noMoreBets)
   
+  def turn: State[GameHand, Player] = inspect(_.turn)
   def nextTurn: State[GameHand, Unit] = modify(_.nextTurn)  
+  
+  def update(player: Player, action: Action): State[GameHand, Unit] = 
+    modify(_.update(player, action))
 
   def winner(current: GameHand): State[Deck, Option[(Player, FullHand)]] =
     pure(current.winner)
@@ -175,9 +202,17 @@ object Game {
 
 object BetTurn {
   import GameHand._
+  import Player._
+  import Console._
   
   val betLoop: State[GameHand, Unit] = 
     for {
       _ <- nextTurn
+      player <- turn
+      action <- speak(player)
+      _ <- update(player, action)
+      _ <- print(s"$player has $action")
+      end <- betOver
+      _ <- if (end) exit[GameHand] else betLoop
     } yield ()
 }

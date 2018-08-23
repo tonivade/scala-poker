@@ -1,51 +1,60 @@
 package tonivade.poker
 
 import cats.data.State
+import cats.data.State._
 
 object Main extends App {
   import Game._
   import GameHand._
   import Console._
+  import BetTurn._
   
   val players = List(Player("pepe"), Player("paco"), Player("toni"), Player("curro"), Player("perico"))
+  
+  def runBetLoop(hand: GameHand): State[Deck, GameHand] = pure(betLoop.runS(hand).value)
   
   def gameLoop(game: Game): State[Deck, (Player, FullHand)] = 
     for {
       _ <- print(game)
       preFlop <- nextGameHand(game)
-      _ <- print(preFlop)
-      flop <- nextPhase(preFlop)
-      _ <- print(flop)
-      turn <- nextPhase(flop)
-      _ <- print(turn)
-      river <- nextPhase(turn)
-      _ <- print(river)
-      showdown <- nextPhase(river)
+      _ <- print(s"current pot ${preFlop.pot}")
+      preFlopBets <- runBetLoop(preFlop)
+      _ <- print(preFlopBets)
+      flop <- nextPhase(preFlopBets)
+      _ <- print(s"current pot ${flop.pot}")
+      flopBets <- runBetLoop(flop)
+      _ <- print(flopBets)
+      turn <- nextPhase(flopBets)
+      _ <- print(s"current pot ${turn.pot}")
+      turnBets <- runBetLoop(turn)
+      _ <- print(turnBets)
+      river <- nextPhase(turnBets)
+      _ <- print(s"current pot ${river.pot}")
+      riverBets <- runBetLoop(river)
+      _ <- print(riverBets)
+      showdown <- nextPhase(riverBets)
       _ <- print(showdown)
-      winner <- winner(showdown)
-      _ <- print(winner)
-    } yield winner.get
+      player <- winner(showdown)
+    } yield player.get
   
   val result = 
     for {
       game <- start(players)
-      _ <- gameLoop(game)
-      next <- next(game)
-    } yield next
+      winner <- gameLoop(game)
+    } yield winner
  
-  val end = result.run(Deck.shuffle).value
-
-  println(end._2)
+  val win = result.runA(Deck.shuffle).value
+  
+  println(win)
 }
 
 object Console {
   import scala.io.StdIn.readLine
-
-  def print[S](value: Any): State[S, Unit] = State {
-    state => (state, println(value))
-  }
+  import cats.data.State._
   
-  def read[S]: State[S, String] = State {
-    state => (state, readLine())
-  }
+  def exit[S]: State[S, Unit] = pure(())
+
+  def print[S](value: Any): State[S, Unit] = pure(println(value))
+  
+  def read[S]: State[S, String] = pure(readLine())
 }
