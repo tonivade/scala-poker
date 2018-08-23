@@ -4,6 +4,8 @@ import org.scalatest.FlatSpec
 import org.scalatest.Matchers
 
 class PokerSpec extends FlatSpec with Matchers {
+  import Game._
+  import GameHand._
   
   val toni = Player("toni")
   val pepe = Player("pepe")
@@ -12,28 +14,28 @@ class PokerSpec extends FlatSpec with Matchers {
   val game = Game(List(toni, pepe, paco))
   val deck = Deck.shuffle
 
-  val preFlop = Game.nextGameHand(game)
+  val preFlop = nextGameHand(game)
   val flop = for {
-    preFlop <- Game.nextGameHand(game)
-    flop <- GameHand.next(preFlop)
+    preFlop <- nextGameHand(game)
+    flop <- nextPhase(preFlop)
   } yield flop
   val turn = for {
-    preFlop <- Game.nextGameHand(game)
-    flop <- GameHand.next(preFlop)
-    turn <- GameHand.next(flop)
+    preFlop <- nextGameHand(game)
+    flop <- nextPhase(preFlop)
+    turn <- nextPhase(flop)
   } yield turn
   val river = for {
-    preFlop <- Game.nextGameHand(game)
-    flop <- GameHand.next(preFlop)
-    turn <- GameHand.next(flop)
-    river <- GameHand.next(turn)
+    preFlop <- nextGameHand(game)
+    flop <- nextPhase(preFlop)
+    turn <- nextPhase(flop)
+    river <- nextPhase(turn)
   } yield river
   val showdown = for {
-    preFlop <- Game.nextGameHand(game)
-    flop <- GameHand.next(preFlop)
-    turn <- GameHand.next(flop)
-    river <- GameHand.next(turn)
-    showdown <- GameHand.next(river)
+    preFlop <- nextGameHand(game)
+    flop <- nextPhase(preFlop)
+    turn <- nextPhase(flop)
+    river <- nextPhase(turn)
+    showdown <- nextPhase(river)
   } yield showdown
 
   "Strait" should "value be 4" in {
