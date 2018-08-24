@@ -26,7 +26,7 @@ object Player {
   
   def speak[S](player: Player): State[S, Action] = 
     for {
-      _ <- print(s"$player turn")
+    	_ <- print(s"${player.name} turn")
       string <- read
     } yield toAction(string).getOrElse(Fold)
     
@@ -58,11 +58,12 @@ case class HandCards(card1: Card, card2: Card, card3: Card, card4: Option[Card] 
 case class PlayerHand(player: Player, role: Role, card1: Card, card2: Card, pot: Int = 0) {
   def bestHand(cards: HandCards): (Player, FullHand) = 
     (player, hands(cards).reduce((a, b) => if (a.bestHand > b.bestHand) a else b))
+    
+  def remaining: Int = player.score - pot
   
   def fold = copy(role = Folded)
   def allIn = copy(pot = player.score)
-  def call(value: Int) = copy(pot = pot + value)
-  def raise(value: Int, raise: Int) = copy(pot = pot + value + raise)
+  def update(value: Int) = copy(pot = pot + value)
 
   private def hands(cards: HandCards): List[FullHand] = 
     for {
@@ -73,7 +74,7 @@ case class PlayerHand(player: Player, role: Role, card1: Card, card2: Card, pot:
 case class GameHand(phase: HandPhase, players: List[PlayerHand], cards: Option[HandCards]) {
   def pot: Int = players.map(_.pot).reduce(_ + _)
   def bet: Int = players.map(_.pot).max
-  def noMoreBets: Boolean = players.exists(_.pot < bet)
+  def noMoreBets: Boolean = players.forall(_.pot == bet)
   
   val turn: Player = players.head.player
   def nextTurn: GameHand = {
@@ -100,9 +101,9 @@ case class GameHand(phase: HandPhase, players: List[PlayerHand], cards: Option[H
   private def fold(player: Player): GameHand = update(player)(_.fold)
   private def allIn(player: Player): GameHand = update(player)(_.allIn)
   private def call(player: Player): GameHand = 
-    diff(player).map(value => update(player)(_.call(value))).getOrElse(this)
+    diff(player).map(value => update(player)(_.update(value))).getOrElse(this)
   private def raise(player: Player, raise: Int): GameHand = 
-    diff(player).map(value => update(player)(_.raise(value, raise))).getOrElse(this)
+    diff(player).map(value => update(player)(_.update(value + raise))).getOrElse(this)
   
   private def update(player: Player)(action: PlayerHand => PlayerHand): GameHand = 
     copy(players = updatePlayer(player)(action))

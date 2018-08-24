@@ -17,25 +17,21 @@ object Main extends App {
     for {
       _ <- print(game)
       preFlop <- nextGameHand(game)
-      _ <- print(s"current pot ${preFlop.pot}")
-      preFlopBets <- runBetLoop(preFlop)
-      _ <- print(preFlopBets)
-      flop <- nextPhase(preFlopBets)
-      _ <- print(s"current pot ${flop.pot}")
-      flopBets <- runBetLoop(flop)
-      _ <- print(flopBets)
-      turn <- nextPhase(flopBets)
-      _ <- print(s"current pot ${turn.pot}")
-      turnBets <- runBetLoop(turn)
-      _ <- print(turnBets)
-      river <- nextPhase(turnBets)
-      _ <- print(s"current pot ${river.pot}")
-      riverBets <- runBetLoop(river)
-      _ <- print(riverBets)
-      showdown <- nextPhase(riverBets)
-      _ <- print(showdown)
+      flop <- phaseLoop(preFlop)
+      turn <- phaseLoop(flop)
+      river <- phaseLoop(turn)
+      showdown <- phaseLoop(river)
       player <- winner(showdown)
     } yield player.get
+    
+  def phaseLoop(hand: GameHand): State[Deck, GameHand] = 
+    for {
+      _ <- print(s"current pot ${hand.pot} in ${hand.phase}")
+      bets <- runBetLoop(hand)
+      _ <- print(bets)
+      nextHand <- nextPhase(bets)
+      _ <- print(nextHand)
+    } yield nextHand
   
   val result = 
     for {
