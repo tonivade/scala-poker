@@ -27,4 +27,15 @@ class DeckSpec extends FlatSpec with Matchers {
     deck.cards.head should be (card)
   }
   
+  "Taken Two Cards" should "be different cards" in {
+    val take2 = for {
+      card1 <- Deck.take
+      card2 <- Deck.take
+    } yield (card1, card2)
+    
+    val (c1, c2) = take2.runA(Deck.shuffle).value
+
+    c1 == c2 should be (false)
+  }
+  
 }
