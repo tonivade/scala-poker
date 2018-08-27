@@ -156,6 +156,6 @@ class PokerSpec extends FlatSpec with Matchers {
         .update(pepe, Call)
         
     newHand.pot should be (6)
-    newHand.bet should be (2)
+    newHand.maxBet should be (2)
   }
 }
