@@ -11,7 +11,7 @@ object Main extends App {
   
   val players = List(Player("pepe"), Player("paco"), Player("toni"), Player("curro"), Player("perico"))
   
-  def runBetLoop(hand: GameHand): State[Deck, GameHand] = pure(betLoop.runS(hand).value)
+  def runBetLoop(hand: GameHand): State[Deck, GameHand] = pure(betLoop.runS(BetTurn.from(hand)).value.hand)
   
   def gameLoop(game: Game): State[Deck, (Player, FullHand)] = 
     for {
@@ -48,7 +48,7 @@ object Console {
   import scala.io.StdIn.readLine
   import cats.data.State._
   
-  def exit[S]: State[S, Unit] = pure(())
+  def noop[S]: State[S, Unit] = pure(())
 
   def print[S](value: Any): State[S, Unit] = pure(println(value))
   
