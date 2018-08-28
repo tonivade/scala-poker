@@ -17,16 +17,14 @@ case object SmallBlind extends Role
 case object BigBlind extends Role
 case object Folded extends Role
 
-case class Player(name: String, score: Int = Player.DEFAULT_SCORE)
+case class Player(name: String, wallet: Int = 500)
 
 object Player {
   import Console._
   
-  val DEFAULT_SCORE: Int = 5000
-  
   def speak[S](player: Player): State[S, Action] = 
     for {
-    	_ <- print(s"${player.name} turn")
+      _ <- print(s"${player.name} turn")
       string <- read
     } yield toAction(string).getOrElse(Check)
     
@@ -61,10 +59,10 @@ case class PlayerHand(player: Player, role: Role, card1: Card, card2: Card, bet:
   def bestHand(cards: HandCards): (Player, FullHand) = 
     (player, hands(cards).reduce((p1, p2) => if (p1.bestHand > p2.bestHand) p1 else p2))
     
-  def remaining: Int = player.score - bet
+  def remaining: Int = player.wallet - bet
   
   def fold = copy(role = Folded)
-  def allIn = copy(bet = player.score)
+  def allIn = copy(bet = player.wallet)
   def update(value: Int) = copy(bet = bet + value)
 
   private def hands(cards: HandCards): List[FullHand] = 
@@ -82,7 +80,7 @@ case class GameHand(phase: HandPhase, players: List[PlayerHand], cards: Option[H
   lazy val nextTurn: GameHand = {
     val (folded, notFolded) = players.span(_.role == Folded)
     val newPlayers = notFolded.tail :+ notFolded.head
-    copy(players = newPlayers ::: folded)
+    copy(players = newPlayers ++ folded)
   }
 
   def toPhase(phase: HandPhase): GameHand = copy(phase = phase, bets = Nil)
@@ -170,7 +168,7 @@ case class Game(players: List[Player], round: Int = 1) {
   def bigBlind: Player = players.tail.tail.head
 
   def next: Game = {
-    val newPlayers = players.filter(_.score > 0)
+    val newPlayers = players.filter(_.wallet > 0)
     Game(newPlayers.tail :+ newPlayers.head, round + 1)
   }
   

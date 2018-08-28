@@ -158,4 +158,31 @@ class PokerSpec extends FlatSpec with Matchers {
     newHand.pot should be (6)
     newHand.maxBet should be (2)
   }
+  
+  "Game Hand turn" should "be next after dealer" in {
+    val toniHand = PlayerHand(toni, Dealer, Card(Clubs, Ace), Card(Spades, Ace))
+    val pacoHand = PlayerHand(paco, SmallBlind, Card(Clubs, Four), Card(Spades, Five))
+    val pepeHand = PlayerHand(pepe, BigBlind, Card(Hearts, Ace), Card(Diamonds, King))
+    val hand = GameHand(Flop, List(toniHand, pacoHand, pepeHand), None)
+    
+    hand.nextTurn.turn should be (paco)
+  }
+  
+  "Game Hand turn nextTurn" should "be next user" in {
+    val toniHand = PlayerHand(toni, Dealer, Card(Clubs, Ace), Card(Spades, Ace))
+    val pacoHand = PlayerHand(paco, SmallBlind, Card(Clubs, Four), Card(Spades, Five))
+    val pepeHand = PlayerHand(pepe, BigBlind, Card(Hearts, Ace), Card(Diamonds, King))
+    val hand = GameHand(Flop, List(toniHand, pacoHand, pepeHand), None)
+    
+    hand.nextTurn.nextTurn.turn should be (pepe)
+  }
+  
+  "Game Hand turn nextTurn nextTurn" should "be next user" in {
+    val toniHand = PlayerHand(toni, Dealer, Card(Clubs, Ace), Card(Spades, Ace))
+    val pacoHand = PlayerHand(paco, SmallBlind, Card(Clubs, Four), Card(Spades, Five))
+    val pepeHand = PlayerHand(pepe, BigBlind, Card(Hearts, Ace), Card(Diamonds, King))
+    val hand = GameHand(Flop, List(toniHand, pacoHand, pepeHand), None)
+    
+    hand.nextTurn.nextTurn.nextTurn.turn should be (toni)
+  }
 }
