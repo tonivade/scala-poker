@@ -1,8 +1,9 @@
 package tonivade.poker
 
 import scala.util.Random
-import cats.data.State
-import cats.data.State._
+import cats.data.StateT
+import cats.data.StateT._
+import cats.effect.IO
 
 sealed trait Suit
 case object Clubs extends Suit
@@ -52,13 +53,13 @@ object Deck {
   def ordered = Deck(Card.all)
   def shuffle = Deck(Random.shuffle(Card.all))
   
-  def burnAndTake: State[Deck, Card] =
+  def burnAndTake: StateT[IO, Deck, Card] =
     for {
       _ <- burn
       card <- take 
     } yield card
 
-  def burnAndTake3: State[Deck, HandCards] =
+  def burnAndTake3: StateT[IO, Deck, HandCards] =
     for {
       _ <- burn
       card1 <- take
@@ -66,9 +67,9 @@ object Deck {
       card3 <- take
     } yield HandCards(card1, card2, card3)
 
-  def take: State[Deck, Card] = State {
-    deck => (deck.burn, deck.take)
+  def take: StateT[IO, Deck, Card] = StateT {
+    deck => IO(deck.burn, deck.take)
   }
   
-  private def burn: State[Deck, Unit] = modify(_.burn)
+  private def burn: StateT[IO, Deck, Unit] = modify(_.burn)
 }

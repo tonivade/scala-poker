@@ -1,21 +1,24 @@
 package tonivade.poker
 
-import cats.data.State
-import cats.data.State._
+import cats.effect.IO
+import cats.data.StateT
+import cats.data.StateT._
 
 object Main extends App {
   import Game._
   import GameHand._
   import Console._
   import BetTurn._
+  import Deck._
   
   val players = List(Player("pepe"), Player("paco"), Player("toni"), Player("curro"), Player("perico"))
   
-  def runBetLoop(hand: GameHand): State[Deck, GameHand] = pure(betLoop.runS(BetTurn.from(hand)).value.hand)
+  def runBetLoop(hand: GameHand): StateT[IO, Deck, GameHand] = pure(betLoop.runS(BetTurn.from(hand)).unsafeRunSync().hand)
   
-  def gameLoop(game: Game): State[Deck, (Player, FullHand)] = 
+  def gameLoop(game: Game): StateT[IO, Deck, (Player, FullHand)] = 
     for {
       _ <- print(game)
+      _ <- set[IO, Deck](shuffle)
       preFlop <- nextGameHand(game)
       flop <- phaseLoop(preFlop)
       turn <- phaseLoop(flop)
@@ -24,13 +27,13 @@ object Main extends App {
       player <- winner(showdown)
     } yield player.get
     
-  def phaseLoop(hand: GameHand): State[Deck, GameHand] = 
+  def phaseLoop(hand: GameHand): StateT[IO, Deck, GameHand] = 
     for {
       _ <- print(s"current pot ${hand.pot} in ${hand.phase}")
+      _ <- print(hand)
       bets <- runBetLoop(hand)
       _ <- print(bets)
       nextHand <- nextPhase(bets)
-      _ <- print(nextHand)
     } yield nextHand
   
   val result = 
@@ -39,18 +42,17 @@ object Main extends App {
       winner <- gameLoop(game)
     } yield winner
  
-  val win = result.runA(Deck.shuffle).value
+  val win = result.runA(ordered).unsafeRunSync()
   
   println(win)
 }
 
 object Console {
   import scala.io.StdIn.readLine
-  import cats.data.State._
   
-  def noop[S]: State[S, Unit] = pure(())
+  def noop[S]: StateT[IO, S, Unit] = pure(())
 
-  def print[S](value: Any): State[S, Unit] = pure(println(value))
+  def print[S](value: Any): StateT[IO, S, Unit] = pure(println(value))
   
-  def read[S]: State[S, String] = pure(readLine())
+  def read[S]: StateT[IO, S, String] = pure(readLine())
 }

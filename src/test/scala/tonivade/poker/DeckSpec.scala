@@ -33,7 +33,7 @@ class DeckSpec extends FlatSpec with Matchers {
       card2 <- Deck.take
     } yield (card1, card2)
     
-    val (c1, c2) = take2.runA(Deck.shuffle).value
+    val (c1, c2) = take2.runA(Deck.shuffle).unsafeRunSync()
 
     c1 == c2 should be (false)
   }

@@ -1,7 +1,8 @@
 package tonivade.poker
 
-import cats.data.State
-import cats.data.State._
+import cats.effect.IO
+import cats.data.StateT
+import cats.data.StateT._
 
 sealed trait HandPhase
 case object PreFlop extends HandPhase
@@ -22,7 +23,7 @@ case class Player(name: String, wallet: Int = 500)
 object Player {
   import Console._
   
-  def speak[S](player: Player): State[S, Action] = 
+  def speak[S](player: Player): StateT[IO, S, Action] = 
     for {
       _ <- print(s"${player.name} turn")
       string <- read
@@ -116,7 +117,7 @@ case class GameHand(phase: HandPhase, players: List[PlayerHand], cards: Option[H
 }
 
 object GameHand {
-  def nextPhase(current: GameHand): State[Deck, GameHand] = 
+  def nextPhase(current: GameHand): StateT[IO, Deck, GameHand] = 
     current.phase match {
       case PreFlop => toFlop(current)
       case Flop => toTurn(current)
@@ -125,25 +126,25 @@ object GameHand {
       case Showdown => pure(current)
     }
 
-  def winner(current: GameHand): State[Deck, Option[(Player, FullHand)]] =
+  def winner(current: GameHand): StateT[IO, Deck, Option[(Player, FullHand)]] =
     pure(current.winner)
   
-  private def toFlop(current: GameHand): State[Deck, GameHand] = 
+  private def toFlop(current: GameHand): StateT[IO, Deck, GameHand] = 
     for {
       cards <- Deck.burnAndTake3
     } yield current.toPhase(Flop).setFlop(cards)
   
-  private def toTurn(current: GameHand): State[Deck, GameHand] =
+  private def toTurn(current: GameHand): StateT[IO, Deck, GameHand] =
     for {
       card <- Deck.burnAndTake 
     } yield current.toPhase(Turn).setTurn(card)
   
-  private def toRiver(current: GameHand): State[Deck, GameHand] =
+  private def toRiver(current: GameHand): StateT[IO, Deck, GameHand] =
     for {
       card <- Deck.burnAndTake 
     } yield current.toPhase(River).setRiver(card)
     
-  private def toShowdown(current: GameHand): State[Deck, GameHand] =
+  private def toShowdown(current: GameHand): StateT[IO, Deck, GameHand] =
     pure(current.toPhase(Showdown))
 }
 
@@ -167,28 +168,28 @@ case class Game(players: List[Player], round: Int = 1) {
 }
 
 object Game {
-  def start(players: List[Player]): State[Deck, Game] = pure(Game(players))
+  def start(players: List[Player]): StateT[IO, Deck, Game] = pure(Game(players))
   
-  def next(game: Game): State[Deck, Game] = pure(game.next)
+  def next(game: Game): StateT[IO, Deck, Game] = pure(game.next)
 
-  def nextGameHand(game: Game): State[Deck, GameHand] = 
+  def nextGameHand(game: Game): StateT[IO, Deck, GameHand] = 
     for {
       players <- playerList(game)
     } yield GameHand(PreFlop, players, None)
   
 
-  private def playerList(game: Game): State[Deck, List[PlayerHand]] = 
+  private def playerList(game: Game): StateT[IO, Deck, List[PlayerHand]] = 
     game.players.map(newPlayerHand(_, game))
-      .foldLeft(pure[Deck, List[PlayerHand]](Nil))((sa, sb) => map2(sa, sb)((acc, b) => acc :+ b))
+      .foldLeft(pure[IO, Deck, List[PlayerHand]](Nil))((sa, sb) => map2(sa, sb)((acc, b) => acc :+ b))
 
-  private def newPlayerHand(player: Player, game: Game): State[Deck, PlayerHand] = 
+  private def newPlayerHand(player: Player, game: Game): StateT[IO, Deck, PlayerHand] = 
     for {
-      role <- pure(game.playerRole(player))
+      role <- pure[IO, Deck, Role](game.playerRole(player))
       card1 <- Deck.take
       card2 <- Deck.take
     } yield PlayerHand(player, role, card1, card2)
   
-  private def map2[S, A, B, C](sa: State[S, A], sb: State[S, B])(map: (A, B) => C): State[S, C] = 
+  private def map2[S, A, B, C](sa: StateT[IO, S, A], sb: StateT[IO, S, B])(map: (A, B) => C): StateT[IO, S, C] = 
     sa.flatMap(a => sb.map(b => map(a, b)))
 }
 
@@ -211,22 +212,22 @@ object BetTurn {
   
   def from(hand: GameHand): BetTurn = BetTurn(hand, hand.players.map(_.player))
 
-  def betOver: State[BetTurn, Boolean] = inspect(_.noMoreBets)
-  def canBet(player: Player): State[BetTurn, Boolean] = inspect(_.canBet(player))
+  def betOver: StateT[IO, BetTurn, Boolean] = inspect(_.noMoreBets)
+  def canBet(player: Player): StateT[IO, BetTurn, Boolean] = inspect(_.canBet(player))
   
-  def turn: State[BetTurn, Player] = inspect(_.turn)
-  def nextTurn: State[BetTurn, Unit] = modify(_.nextTurn)  
+  def turn: StateT[IO, BetTurn, Player] = inspect(_.turn)
+  def nextTurn: StateT[IO, BetTurn, Unit] = modify(_.nextTurn)  
   
-  def update(player: Player, action: Action): State[BetTurn, Unit] = modify(_.update(player, action))
+  def update(player: Player, action: Action): StateT[IO, BetTurn, Unit] = modify(_.update(player, action))
   
-  def playerTurn(player: Player): State[BetTurn, Unit] = 
+  def playerTurn(player: Player): StateT[IO, BetTurn, Unit] = 
     for {
       action <- speak(player)
       _ <- update(player, action)
       _ <- print(s"${player.name} has $action")
     } yield ()
   
-  val betLoop: State[BetTurn, Unit] = 
+  val betLoop: StateT[IO, BetTurn, Unit] = 
     for {
       _ <- nextTurn
       player <- turn

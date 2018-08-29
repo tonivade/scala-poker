@@ -59,7 +59,7 @@ class PokerSpec extends FlatSpec with Matchers {
   }
   
   "Game Hand" should "starts with an empty bet" in {
-    val hand = preFlop.runA(deck).value
+    val hand = preFlop.runA(deck).unsafeRunSync()
     hand.pot should be (0)
   }
   
@@ -117,37 +117,37 @@ class PokerSpec extends FlatSpec with Matchers {
   }
   
   "Game Hand" should "start with a state PreFlop" in {
-    val hand = preFlop.runA(deck).value
+    val hand = preFlop.runA(deck).unsafeRunSync()
 
     hand.phase should be (PreFlop)
   }
   
   "Game Hand" should "Flop follow PreFlop" in {
-    val hand = flop.runA(deck).value
+    val hand = flop.runA(deck).unsafeRunSync()
 
     hand.phase should be (Flop)
   }
   
   "Game Hand" should "Turn follow Flop" in {
-    val hand = turn.runA(deck).value
+    val hand = turn.runA(deck).unsafeRunSync()
 
     hand.phase should be (Turn)
   }
   
   "Game Hand" should "River follow Turn" in {
-    val hand = river.runA(deck).value
+    val hand = river.runA(deck).unsafeRunSync()
 
     hand.phase should be (River)
   }
   
   "Game Hand" should "Showdown follow River" in {
-    val hand = showdown.runA(deck).value
+    val hand = showdown.runA(deck).unsafeRunSync()
 
     hand.phase should be (Showdown)
   }
   
   "Game Hand" should "be updated with two raises two calls to 6" in {
-    val hand = preFlop.runA(deck).value
+    val hand = preFlop.runA(deck).unsafeRunSync()
 
     val newHand = hand
         .update(pepe, Raise(1))
