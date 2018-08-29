@@ -163,7 +163,7 @@ class PokerSpec extends FlatSpec with Matchers {
     val toniHand = PlayerHand(toni, Dealer, Card(Clubs, Ace), Card(Spades, Ace))
     val pacoHand = PlayerHand(paco, SmallBlind, Card(Clubs, Four), Card(Spades, Five))
     val pepeHand = PlayerHand(pepe, BigBlind, Card(Hearts, Ace), Card(Diamonds, King))
-    val hand = GameHand(Flop, List(toniHand, pacoHand, pepeHand), None)
+    val hand = GameHand(PreFlop, List(toniHand, pacoHand, pepeHand), None)
     val bets = BetTurn.from(hand)
     
     bets.nextTurn.turn should be (paco)
@@ -173,7 +173,7 @@ class PokerSpec extends FlatSpec with Matchers {
     val toniHand = PlayerHand(toni, Dealer, Card(Clubs, Ace), Card(Spades, Ace))
     val pacoHand = PlayerHand(paco, SmallBlind, Card(Clubs, Four), Card(Spades, Five))
     val pepeHand = PlayerHand(pepe, BigBlind, Card(Hearts, Ace), Card(Diamonds, King))
-    val hand = GameHand(Flop, List(toniHand, pacoHand, pepeHand), None)
+    val hand = GameHand(PreFlop, List(toniHand, pacoHand, pepeHand), None)
     val bets = BetTurn.from(hand)
     
     bets.nextTurn.nextTurn.turn should be (pepe)
@@ -183,9 +183,79 @@ class PokerSpec extends FlatSpec with Matchers {
     val toniHand = PlayerHand(toni, Dealer, Card(Clubs, Ace), Card(Spades, Ace))
     val pacoHand = PlayerHand(paco, SmallBlind, Card(Clubs, Four), Card(Spades, Five))
     val pepeHand = PlayerHand(pepe, BigBlind, Card(Hearts, Ace), Card(Diamonds, King))
-    val hand = GameHand(Flop, List(toniHand, pacoHand, pepeHand), None)
+    val hand = GameHand(PreFlop, List(toniHand, pacoHand, pepeHand), None)
     val bets = BetTurn.from(hand)
     
     bets.nextTurn.nextTurn.nextTurn.turn should be (toni)
+  }
+  
+  "Bet turn in preflop for big blind user" should "only can raise" in {
+    val toniHand = PlayerHand(toni, Dealer, Card(Clubs, Ace), Card(Spades, Ace))
+    val pacoHand = PlayerHand(paco, SmallBlind, Card(Clubs, Four), Card(Spades, Five))
+    val pepeHand = PlayerHand(pepe, BigBlind, Card(Hearts, Ace), Card(Diamonds, King))
+    val hand = GameHand(PreFlop, List(toniHand, pacoHand, pepeHand), None)
+    val bets = BetTurn.from(hand)
+    
+    bets.options(pepe) should be (List(Raise(1)))
+  }
+  
+  "Bet turn in preflop for big blind user" should "do any action after first round" in {
+    val toniHand = PlayerHand(toni, Dealer, Card(Clubs, Ace), Card(Spades, Ace))
+    val pacoHand = PlayerHand(paco, SmallBlind, Card(Clubs, Four), Card(Spades, Five))
+    val pepeHand = PlayerHand(pepe, BigBlind, Card(Hearts, Ace), Card(Diamonds, King))
+    val hand = GameHand(PreFlop, List(toniHand, pacoHand, pepeHand), None)
+    val bets = BetTurn.from(hand).copy(bets = List(Raise(1), Raise(1), Call))
+    
+    bets.options(paco) should be (List(Fold, Check, Raise(1)))
+  }
+  
+  "Bet turn in preflop for small blind user" should "only can raise" in {
+    val toniHand = PlayerHand(toni, Dealer, Card(Clubs, Ace), Card(Spades, Ace))
+    val pacoHand = PlayerHand(paco, SmallBlind, Card(Clubs, Four), Card(Spades, Five))
+    val pepeHand = PlayerHand(pepe, BigBlind, Card(Hearts, Ace), Card(Diamonds, King))
+    val hand = GameHand(PreFlop, List(toniHand, pacoHand, pepeHand), None)
+    val bets = BetTurn.from(hand)
+    
+    bets.options(paco) should be (List(Raise(1)))
+  }
+  
+  "Bet turn in preflop for small blind user" should "do any action after first round" in {
+    val toniHand = PlayerHand(toni, Dealer, Card(Clubs, Ace), Card(Spades, Ace))
+    val pacoHand = PlayerHand(paco, SmallBlind, Card(Clubs, Four), Card(Spades, Five))
+    val pepeHand = PlayerHand(pepe, BigBlind, Card(Hearts, Ace), Card(Diamonds, King))
+    val hand = GameHand(PreFlop, List(toniHand, pacoHand, pepeHand), None)
+    val bets = BetTurn.from(hand).copy(bets = List(Raise(1), Raise(1), Call))
+    
+    bets.options(paco) should be (List(Fold, Check, Raise(1)))
+  }
+  
+  "Bet turn in flop for small blind user" should "do any action after first round" in {
+    val toniHand = PlayerHand(toni, Dealer, Card(Clubs, Ace), Card(Spades, Ace))
+    val pacoHand = PlayerHand(paco, SmallBlind, Card(Clubs, Four), Card(Spades, Five))
+    val pepeHand = PlayerHand(pepe, BigBlind, Card(Hearts, Ace), Card(Diamonds, King))
+    val hand = GameHand(Flop, List(toniHand, pacoHand, pepeHand), None)
+    val bets = BetTurn.from(hand).copy(bets = List(Raise(1), Raise(1), Call))
+    
+    bets.options(paco) should be (List(Fold, Check, Raise(1)))
+  }
+  
+  "Bet turn in preflop for dealer user" should "do any action" in {
+    val toniHand = PlayerHand(toni, Dealer, Card(Clubs, Ace), Card(Spades, Ace))
+    val pacoHand = PlayerHand(paco, SmallBlind, Card(Clubs, Four), Card(Spades, Five))
+    val pepeHand = PlayerHand(pepe, BigBlind, Card(Hearts, Ace), Card(Diamonds, King))
+    val hand = GameHand(PreFlop, List(toniHand, pacoHand, pepeHand), None)
+    val bets = BetTurn.from(hand)
+    
+    bets.options(toni) should be (List(Fold, Check, Raise(1)))
+  }
+  
+  "Bet turn in preflop for dealer user with raise" should "do any action but call instead of check" in {
+    val toniHand = PlayerHand(toni, Dealer, Card(Clubs, Ace), Card(Spades, Ace))
+    val pacoHand = PlayerHand(paco, SmallBlind, Card(Clubs, Four), Card(Spades, Five))
+    val pepeHand = PlayerHand(pepe, BigBlind, Card(Hearts, Ace), Card(Diamonds, King))
+    val hand = GameHand(PreFlop, List(toniHand, pacoHand, pepeHand), None)
+    val bets = BetTurn.from(hand).update(pepe, Raise(1)).update(paco, Raise(1))
+    
+    bets.options(toni) should be (List(Fold, Call, Raise(1)))
   }
 }

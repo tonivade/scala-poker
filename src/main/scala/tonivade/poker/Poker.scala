@@ -3,6 +3,7 @@ package tonivade.poker
 import cats.effect.IO
 import cats.data.StateT
 import cats.data.StateT._
+import cats.Monad
 
 sealed trait HandPhase
 case object PreFlop extends HandPhase
@@ -189,21 +190,41 @@ object Game {
       card2 <- Deck.take
     } yield PlayerHand(player, role, card1, card2)
   
-  private def map2[S, A, B, C](sa: StateT[IO, S, A], sb: StateT[IO, S, B])(map: (A, B) => C): StateT[IO, S, C] = 
+  private def map2[F[_]: Monad, S, A, B, C](sa: StateT[F, S, A], sb: StateT[F, S, B])(map: (A, B) => C): StateT[F, S, C] = 
     sa.flatMap(a => sb.map(b => map(a, b)))
 }
 
 case class BetTurn(hand: GameHand, players: List[Player], bets: List[Action] = Nil) {
-  lazy val noMoreBets: Boolean = bets.size >= players.size && hand.notFolded.forall(_.bet == hand.maxBet)
+  lazy val allPlayersSpeak = bets.size >= players.size
+  lazy val allBetsBalanced = hand.notFolded.forall(_.bet == hand.maxBet)
+  lazy val noMoreBets: Boolean = allPlayersSpeak && allBetsBalanced
   
   lazy val turn: Player = players.head
-  lazy val nextTurn: BetTurn = 
-    copy(players = players.tail :+ players.head)
+  lazy val nextTurn: BetTurn = copy(players = players.tail :+ players.head)
+  
+  def options(player: Player): List[Action] = 
+    hand.find(player) match {
+      case Some(playerHand) => 
+        playerHand.role match {
+          case BigBlind => blind(playerHand) :+ Raise(1)
+          case SmallBlind => blind(playerHand) :+ Raise(1)
+          case Dealer => regular(playerHand) :+ Raise(1)
+          case Regular => regular(playerHand) :+ Raise(1)
+          case Folded => Nil
+        }
+      case _ => Nil
+    }
     
   def canBet(player: Player): Boolean = hand.find(player).exists(_.role != Folded)
   
   def update(player: Player, action: Action): BetTurn = 
     copy(hand = hand.update(player, action), bets = bets :+ action)
+  
+  private def blind(playerHand: PlayerHand): List[Action] = 
+    if (hand.phase != PreFlop || allPlayersSpeak) regular(playerHand) else Nil
+  private def regular(playerHand: PlayerHand): List[Action] = 
+    List(Fold, if (canCall(playerHand)) Call else Check)
+  private def canCall(playerHand: PlayerHand): Boolean = hand.maxBet > playerHand.bet
 }
 
 object BetTurn {
@@ -217,11 +238,14 @@ object BetTurn {
   
   def turn: StateT[IO, BetTurn, Player] = inspect(_.turn)
   def nextTurn: StateT[IO, BetTurn, Unit] = modify(_.nextTurn)  
+  def options(player: Player): StateT[IO, BetTurn, List[Action]] = inspect(_.options(player))
   
   def update(player: Player, action: Action): StateT[IO, BetTurn, Unit] = modify(_.update(player, action))
   
   def playerTurn(player: Player): StateT[IO, BetTurn, Unit] = 
     for {
+      options <- options(player)
+      _ <- print(s"user can $options")
       action <- speak(player)
       _ <- update(player, action)
       _ <- print(s"${player.name} has $action")
