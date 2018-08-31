@@ -142,6 +142,11 @@ object GameHand {
       showdown <- phaseLoop(river)
       player <- winner(showdown)
     } yield player.get
+  
+  def nextGameHand(game: Game): StateT[IO, Deck, GameHand] = 
+    for {
+      players <- playerList(game)
+    } yield GameHand(PreFlop, players, None)
     
   def phaseLoop(hand: GameHand): StateT[IO, Deck, GameHand] = 
     for {
@@ -181,6 +186,20 @@ object GameHand {
     
   private def toShowdown(current: GameHand): StateT[IO, Deck, GameHand] =
     pure(current.toPhase(Showdown))
+
+  private def playerList(game: Game): StateT[IO, Deck, List[PlayerHand]] = 
+    game.players.map(newPlayerHand(_, game))
+      .foldLeft(pure[IO, Deck, List[PlayerHand]](Nil))((sa, sb) => map2(sa, sb)((acc, b) => acc :+ b))
+
+  private def newPlayerHand(player: Player, game: Game): StateT[IO, Deck, PlayerHand] = 
+    for {
+      role <- pure[IO, Deck, Role](game.playerRole(player))
+      card1 <- Deck.take
+      card2 <- Deck.take
+    } yield PlayerHand(player, role, card1, card2)
+  
+  private def map2[F[_]: Monad, S, A, B, C](sa: StateT[F, S, A], sb: StateT[F, S, B])(map: (A, B) => C): StateT[F, S, C] = 
+    sa.flatMap(a => sb.map(b => map(a, b)))
 }
 
 case class BetTurn(hand: GameHand, players: List[Player], bets: List[Action] = Nil) {
@@ -274,28 +293,9 @@ case class Game(players: List[Player], round: Int = 1) {
 }
 
 object Game {
-  import GameHand._
-  import Deck._
-  import Player._
+  def start(players: List[Player]): StateT[IO, Game, Unit] = set(Game(players))
   
-  def nextGameHand(game: Game): StateT[IO, Deck, GameHand] = 
-    for {
-      players <- playerList(game)
-    } yield GameHand(PreFlop, players, None)
-
-  private def playerList(game: Game): StateT[IO, Deck, List[PlayerHand]] = 
-    game.players.map(newPlayerHand(_, game))
-      .foldLeft(pure[IO, Deck, List[PlayerHand]](Nil))((sa, sb) => map2(sa, sb)((acc, b) => acc :+ b))
-
-  private def newPlayerHand(player: Player, game: Game): StateT[IO, Deck, PlayerHand] = 
-    for {
-      role <- pure[IO, Deck, Role](game.playerRole(player))
-      card1 <- Deck.take
-      card2 <- Deck.take
-    } yield PlayerHand(player, role, card1, card2)
-  
-  private def map2[F[_]: Monad, S, A, B, C](sa: StateT[F, S, A], sb: StateT[F, S, B])(map: (A, B) => C): StateT[F, S, C] = 
-    sa.flatMap(a => sb.map(b => map(a, b)))
+  def next(game: Game): StateT[IO, Game, Unit] = set(game.next)
 }
 
 object Console {
