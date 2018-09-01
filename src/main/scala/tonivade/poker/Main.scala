@@ -9,7 +9,9 @@ object Main extends App {
   
   val players = List(Player("pepe"), Player("paco"), Player("toni"), Player("curro"), Player("perico"))
   
-  val winner = runHandLoop(new Game(players))
+  val result: GameHand = runHandLoop(new Game(players))
   
-  println(winner)
+  println(result.players)
+  println(result.winner)
+  println(result.winner.map(_._2.bestHand))
 }

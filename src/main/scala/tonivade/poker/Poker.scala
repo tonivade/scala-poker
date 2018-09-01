@@ -60,7 +60,9 @@ case class HandCards(card1: Card, card2: Card, card3: Card, card4: Option[Card] 
 }
 
 case class PlayerHand(player: Player, role: Role, card1: Card, card2: Card, bet: Int = 0) {
-  def bestHand(cards: HandCards): (Player, FullHand) = 
+  import Player._
+
+  def bestHand(cards: HandCards): Winner = 
     (player, hands(cards).reduce((p1, p2) => if (p1.bestHand > p2.bestHand) p1 else p2))
     
   def remaining: Int = player.wallet - bet
@@ -128,20 +130,18 @@ object GameHand {
   import BetTurn._
   import Player._
   
-  def runHandLoop(game: Game): Winner = 
+  def runHandLoop(game: Game): GameHand = 
     handLoop(game).runA(shuffle).unsafeRunSync()
   
-  def handLoop(game: Game): StateT[IO, Deck, Winner] = 
+  def handLoop(game: Game): StateT[IO, Deck, GameHand] = 
     for {
       _ <- print(game)
-      _ <- set[IO, Deck](shuffle)
       preFlop <- nextGameHand(game)
       flop <- phaseLoop(preFlop)
       turn <- phaseLoop(flop)
       river <- phaseLoop(turn)
       showdown <- phaseLoop(river)
-      player <- winner(showdown)
-    } yield player.get
+    } yield showdown
   
   def nextGameHand(game: Game): StateT[IO, Deck, GameHand] = 
     for {
@@ -203,7 +203,7 @@ object GameHand {
 }
 
 case class BetTurn(hand: GameHand, players: List[Player], bets: List[Action] = Nil) {
-  lazy val allPlayersSpeak = bets.size >= players.size
+  lazy val allPlayersSpeak = bets.filterNot(_ == Fold).size >= hand.notFolded.size
   lazy val allBetsBalanced = hand.notFolded.forall(_.bet == hand.maxBet)
   lazy val noMoreBets: Boolean = allPlayersSpeak && allBetsBalanced
   
