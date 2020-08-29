@@ -1,11 +1,11 @@
 package tonivade.poker
 
-import org.scalatest.FlatSpec
-import org.scalatest.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-class DeckSpec extends FlatSpec with Matchers {
+class DeckSpec extends AnyFlatSpec with Matchers {
 
-  val deck = Deck.shuffle
+  val deck: Deck = Deck.shuffle
 
   "Deck" should "have 52 cards" in {
     deck.cards.size should be (52)

@@ -293,9 +293,28 @@ case class Game(players: List[Player], round: Int = 1) {
 }
 
 object Game {
+  import Console._
+  
   def start(players: List[Player]): StateT[IO, Game, Unit] = set(Game(players))
   
   def next(game: Game): StateT[IO, Game, Unit] = set(game.next)
+  
+  def readPlayer[S]: StateT[IO, S, Player] =
+    for {
+      _ <- print("enter player name")
+      name <- read
+    } yield Player(name)
+  
+  def addPlayer(player: Player): StateT[IO, List[Player], Unit] = modify(_ :+ player)
+
+  def playersLoop: StateT[IO, List[Player], Unit] = 
+    for {
+      player <- readPlayer
+      _ <- addPlayer(player)
+      _ <- print("do you want to add more players")
+      more <- read
+      _ <- if (more == "y") playersLoop else noop[List[Player]]
+    } yield ()
 }
 
 object Console {

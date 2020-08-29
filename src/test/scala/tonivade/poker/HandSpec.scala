@@ -1,9 +1,9 @@
 package tonivade.poker
 
-import org.scalatest.FlatSpec
-import org.scalatest.Matchers
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-class HandSpec extends FlatSpec with Matchers {
+class HandSpec extends AnyFlatSpec with Matchers {
   
   "Hand with all different cards" should "be a Highcard" in {
     val hand = FullHand(Card(Spades, Seven), Card(Clubs, Ace), Card(Hearts, Two), Card(Diamonds, Three), Card(Spades, Four))

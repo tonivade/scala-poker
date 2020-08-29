@@ -1,36 +1,37 @@
 package tonivade.poker
 
-import org.scalatest.FlatSpec
-import org.scalatest.Matchers
+import cats.data.StateT
+import cats.effect.IO
+import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
-class PokerSpec extends FlatSpec with Matchers {
-  import Game._
+class PokerSpec extends AnyFlatSpec with Matchers {
   import GameHand._
   
-  val toni = Player("toni")
-  val pepe = Player("pepe")
-  val paco = Player("paco")
+  val toni: Player = Player("toni")
+  val pepe: Player = Player("pepe")
+  val paco: Player = Player("paco")
 
-  val game = Game(List(toni, pepe, paco))
-  val deck = Deck.shuffle
+  val game: Game = Game(List(toni, pepe, paco))
+  val deck: Deck = Deck.shuffle
 
-  val preFlop = nextGameHand(game)
-  val flop = for {
+  val preFlop: StateT[IO, Deck, GameHand] = nextGameHand(game)
+  val flop: StateT[IO, Deck, GameHand] = for {
     preFlop <- nextGameHand(game)
     flop <- nextPhase(preFlop)
   } yield flop
-  val turn = for {
+  val turn: StateT[IO, Deck, GameHand] = for {
     preFlop <- nextGameHand(game)
     flop <- nextPhase(preFlop)
     turn <- nextPhase(flop)
   } yield turn
-  val river = for {
+  val river: StateT[IO, Deck, GameHand] = for {
     preFlop <- nextGameHand(game)
     flop <- nextPhase(preFlop)
     turn <- nextPhase(flop)
     river <- nextPhase(turn)
   } yield river
-  val showdown = for {
+  val showdown: StateT[IO, Deck, GameHand] = for {
     preFlop <- nextGameHand(game)
     flop <- nextPhase(preFlop)
     turn <- nextPhase(flop)
