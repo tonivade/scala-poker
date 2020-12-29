@@ -67,9 +67,9 @@ case class PlayerHand(player: Player, role: Role, card1: Card, card2: Card, bet:
     
   def remaining: Int = player.wallet - bet
   
-  def fold = copy(role = Folded)
-  def allIn = copy(bet = player.wallet)
-  def update(value: Int) = copy(bet = bet + value)
+  def fold: PlayerHand = copy(role = Folded)
+  def allIn: PlayerHand = copy(bet = player.wallet)
+  def update(value: Int): PlayerHand = copy(bet = bet + value)
 
   private def hands(cards: HandCards): List[FullHand] = 
     for {
@@ -80,7 +80,7 @@ case class PlayerHand(player: Player, role: Role, card1: Card, card2: Card, bet:
 case class GameHand(phase: HandPhase, players: List[PlayerHand], cards: Option[HandCards]) {
   import Player._
   
-  lazy val pot: Int = players.map(_.bet).reduce(_ + _)
+  lazy val pot: Int = players.map(_.bet).sum
   lazy val maxBet: Int = players.map(_.bet).max
   lazy val notFolded: List[PlayerHand] = players.filter(_.role != Folded)
 
@@ -125,7 +125,6 @@ case class GameHand(phase: HandPhase, players: List[PlayerHand], cards: Option[H
 
 object GameHand {
   import Console._
-  import Game._
   import Deck._
   import BetTurn._
   import Player._
@@ -203,8 +202,8 @@ object GameHand {
 }
 
 case class BetTurn(hand: GameHand, players: List[Player], bets: List[Action] = Nil) {
-  lazy val allPlayersSpeak = bets.filterNot(_ == Fold).size >= hand.notFolded.size
-  lazy val allBetsBalanced = hand.notFolded.forall(_.bet == hand.maxBet)
+  lazy val allPlayersSpeak: Boolean = bets.filterNot(_ == Fold).size >= hand.notFolded.size
+  lazy val allBetsBalanced: Boolean = hand.notFolded.forall(_.bet == hand.maxBet)
   lazy val noMoreBets: Boolean = allPlayersSpeak && allBetsBalanced
   
   lazy val turn: Player = players.head

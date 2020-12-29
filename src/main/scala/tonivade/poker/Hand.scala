@@ -3,7 +3,7 @@ package tonivade.poker
 sealed trait Hand extends Ordered[Hand] {
   def value: Int
   def eval(hand: FullHand): Boolean
-  def compare(that: Hand) = this.value - that.value
+  def compare(that: Hand): Int = this.value - that.value
 }
 
 case object Highcard extends Hand {
@@ -13,12 +13,12 @@ case object Highcard extends Hand {
 
 case object Pair extends Hand {
   val value = 1
-  def eval(hand: FullHand): Boolean = hand.count.filter(_._2 == 2).size == 1
+  def eval(hand: FullHand): Boolean = hand.count.count(_._2 == 2) == 1
 }
 
 case object TwoPairs extends Hand {
   val value = 2 
-  def eval(hand: FullHand): Boolean = hand.count.filter(_._2 == 2).size == 2
+  def eval(hand: FullHand): Boolean = hand.count.count(_._2 == 2) == 2
 }
 
 case object ThreeOfAKind extends Hand {

@@ -15,22 +15,22 @@ object Suit {
 }
 
 sealed trait Figure extends Ordered[Figure] {
-  def value: Int
-  def compare(that: Figure) = this.value - that.value
+  val value: Int
+  def compare(that: Figure): Int = this.value - that.value
 }
-case object Two extends Figure { val value = 0 }
-case object Three extends Figure { val value = 1 }
-case object Four extends Figure { val value = 2 }
-case object Five extends Figure { val value = 3 }
-case object Six extends Figure { val value = 4 }
-case object Seven extends Figure { val value = 5 }
-case object Eight extends Figure { val value = 6 }
-case object Nine extends Figure { val value = 7 }
-case object Ten extends Figure { val value = 8 }
-case object Jack extends Figure { val value = 9 }
-case object Queen extends Figure { val value = 10 }
-case object King extends Figure { val value = 11 }
-case object Ace extends Figure { val value = 12 }
+case object Two extends Figure { override val value = 0 }
+case object Three extends Figure { override val value = 1 }
+case object Four extends Figure { override val value = 2 }
+case object Five extends Figure { override val value = 3 }
+case object Six extends Figure { override val value = 4 }
+case object Seven extends Figure { override val value = 5 }
+case object Eight extends Figure { override val value = 6 }
+case object Nine extends Figure { override val value = 7 }
+case object Ten extends Figure { override val value = 8 }
+case object Jack extends Figure { override val value = 9 }
+case object Queen extends Figure { override val value = 10 }
+case object King extends Figure { override val value = 11 }
+case object Ace extends Figure { override val value = 12 }
 object Figure {
   val all = List(Ace, Two, Three, Four, Five, Six, Seven, Eight, Nine, Ten, Jack, Queen, King)
 }
@@ -38,20 +38,20 @@ object Figure {
 case class Card(suit: Suit, figure: Figure)
 
 object Card {
-  val all = for {
+  val all: Seq[Card] = for {
     suit <- Suit.all
     figure <- Figure.all
   } yield Card(suit, figure)
 }
 
-case class Deck(cards: List[Card]) {
-  def take = cards.head
-  def burn = Deck(cards.tail)
+case class Deck(cards: Seq[Card]) {
+  def take: Card = cards.head
+  def burn: Deck = Deck(cards.tail)
 }
 
 object Deck {
-  def ordered = Deck(Card.all)
-  def shuffle = Deck(Random.shuffle(Card.all))
+  def ordered: Deck = Deck(Card.all)
+  def shuffle: Deck = Deck(Random.shuffle(Card.all))
   
   def burnAndTake: StateT[IO, Deck, Card] =
     for {

@@ -1,9 +1,5 @@
 package tonivade.poker
 
-import cats.effect.IO
-import cats.data.StateT
-import cats.data.StateT._
-
 object Main extends App {
   import GameHand._
   
